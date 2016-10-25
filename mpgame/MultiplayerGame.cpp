@@ -9185,11 +9185,11 @@ bool idMultiplayerGame::IsBuyingAllowedInTheCurrentGameMode( void ) {
 		return false;
 	}
 
-	if ( gameLocal.gameType != GAME_TOURNEY ) {
-		return gameLocal.serverInfo.GetBool( "si_isBuyingEnabled" );
-	}
+	//if ( gameLocal.gameType != GAME_TOURNEY ) {
+	//	return gameLocal.serverInfo.GetBool( "si_isBuyingEnabled" );
+	//}
 
-	return false;
+	return true;
 }
 
 
@@ -9200,7 +9200,7 @@ idMultiplayerGame::IsBuyingAllowedRightNow
 */
 bool idMultiplayerGame::IsBuyingAllowedRightNow( void )
 {
-	return ( IsBuyingAllowedInTheCurrentGameMode() && isBuyingAllowedRightNow );
+	return ( IsBuyingAllowedInTheCurrentGameMode() /*&& isBuyingAllowedRightNow*/ );
 }
 
 
