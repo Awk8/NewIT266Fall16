@@ -49,7 +49,7 @@ bool g_ObjectiveSystemOpen = false;
 const int LADDER_RUNG_DISTANCE = 32;
 
 // amount of health per dose from the health station
-const int HEALTH_PER_DOSE = 10;
+const int HEALTH_PER_DOSE = 50;
 
 // time before a weapon dropped to the floor disappears
 const int WEAPON_DROP_TIME = 20 * 1000;
@@ -333,7 +333,7 @@ void idInventory::RestoreInventory( idPlayer *owner, const idDict &dict ) {
 	//Clear();
 
 	// health/armor
-	maxHealth		= dict.GetInt( "maxhealth", "100" );
+	maxHealth		= dict.GetInt( "maxhealth", "500" );
 	armor			= dict.GetInt( "armor", "50" );
 	maxarmor		= dict.GetInt( "maxarmor", "100" );
 

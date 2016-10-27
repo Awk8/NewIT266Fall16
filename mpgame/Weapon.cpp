@@ -2347,6 +2347,19 @@ const char* rvWeapon::GetAmmoNameForIndex( int index ) {
 rvWeapon::TotalAmmoCount
 ================
 */
+int rvWeapon::manaAvailable( void ) const 
+{
+	if ( owner ) {
+		return owner->inventory.HasAmmo( ammoType, ammoRequired );
+	} else {
+		return 0;
+	}
+}
+/*
+================
+rvWeapon::TotalAmmoCount
+================
+*/
 int rvWeapon::TotalAmmoCount ( void ) const {
 	return owner->inventory.HasAmmo( ammoType, 1 );
 }

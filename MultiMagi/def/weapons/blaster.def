@@ -65,7 +65,7 @@ entityDef weapon_blaster
 	"spawnclass"				"idItem"
 	"weaponclass"				"rvWeaponBlaster"
 	"weaponname"				"Blaster"
-	"size"						"32 32 32"
+	"size"						"2 2 2"
 
   	"model_view"				"weapon_blaster_view"
   	"model_view_strogg"			"weapon_blaster_view_strogg"
@@ -74,8 +74,8 @@ entityDef weapon_blaster
 
 	"joint_attach"				"PST_ATTACHER"
 	"joint_view_flashlight"		"barrel"
-	"joint_view_flash"			"barrel"
-	"joint_world_flash"			"muzzle_flash"
+	"joint_view_flash"			""
+	"joint_world_flash"			""
 
 	// Firing properties
 	"chargeTime"				".8"

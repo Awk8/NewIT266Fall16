@@ -192,7 +192,8 @@ public:
 	void				NetReload					( void );
 	void				NetEndReload				( void );
 	void				NetCatchup					( void );
-
+	//Mana
+	int					manaAvailable				( void ) const;
 	// Ammo
 	static int			GetAmmoIndexForName			( const char *ammoname );
 	static const char*	GetAmmoNameForIndex			( int index );
