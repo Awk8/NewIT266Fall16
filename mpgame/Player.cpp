@@ -1020,6 +1020,18 @@ void idInventory::Drop( const idDict &spawnArgs, const char *weapon_classname, i
 
 /*
 ===============
+idInventory::HasMana
+===============
+*/
+int idInventory::HasMana( int amount )
+{
+	if ( mana <= 0 )
+		return -1;
+	return mana / amount;
+}
+
+/*
+===============
 idInventory::HasAmmo
 ===============
 */

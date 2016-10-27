@@ -2350,7 +2350,7 @@ rvWeapon::TotalAmmoCount
 int rvWeapon::manaAvailable( void ) const 
 {
 	if ( owner ) {
-		return owner->inventory.HasAmmo( ammoType, ammoRequired );
+		return owner->inventory.HasMana( ammoType, ammoRequired );
 	} else {
 		return 0;
 	}

@@ -203,6 +203,7 @@ public:
 	int						powerups;
 	int						armor;
 	int						maxarmor;
+	int						mana;
 	int						ammo[ MAX_AMMO ];
 	int						clip[ MAX_WEAPONS ];
 	int						powerupEndTime[ POWERUP_MAX ];
@@ -252,6 +253,8 @@ public:
 	int						StartingAmmoForWeaponIndex( int weaponIndex );
 	int						AmmoRegenStepForWeaponIndex( int weaponIndex );
 	int						AmmoRegenTimeForWeaponIndex( int weaponIndex );
+
+	int						HasMana( int amount);
 
 	int						HasAmmo( int index, int amount );
 	bool					UseAmmo( int index, int amount );
