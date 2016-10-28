@@ -1032,6 +1032,25 @@ int idInventory::HasMana( int amount )
 
 /*
 ===============
+idInventory::UseMana
+===============
+*/
+bool idInventory::UseMana( int amount ) {
+	if ( !HasMana( amount ) ) {
+		return false;
+	}
+
+	// take an ammo away if not infinite
+	if ( mana >= 0 ) {
+		mana -= amount;
+ 		ammoPredictTime = gameLocal.time; // mp client: we predict this. mark time so we're not confused by snapshots
+	}
+
+	return true;
+}
+
+/*
+===============
 idInventory::HasAmmo
 ===============
 */

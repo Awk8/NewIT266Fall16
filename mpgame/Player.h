@@ -254,7 +254,8 @@ public:
 	int						AmmoRegenStepForWeaponIndex( int weaponIndex );
 	int						AmmoRegenTimeForWeaponIndex( int weaponIndex );
 
-	int						HasMana( int amount);
+	int						HasMana( int amount );
+	bool					UseMana( int amount );
 
 	int						HasAmmo( int index, int amount );
 	bool					UseAmmo( int index, int amount );

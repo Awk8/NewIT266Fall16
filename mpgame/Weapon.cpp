@@ -2460,6 +2460,21 @@ void rvWeapon::SetClip ( int amount ) {
 
 /*
 ================
+rvWeapon::UseMana
+================
+*/
+void rvWeapon::UseMana( int amount ) {
+	owner->inventory.UseMana( amount * ammoRequired );
+	if ( clipSize && ammoRequired ) {
+		ammoClip -= ( amount * ammoRequired );
+		if ( ammoClip < 0 ) {
+			ammoClip = 0;
+		}
+	}
+}
+
+/*
+================
 rvWeapon::UseAmmo
 ================
 */
