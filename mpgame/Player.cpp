@@ -401,6 +401,7 @@ void idInventory::Save( idSaveGame *savefile ) const {
 	savefile->WriteInt( powerups );
 	savefile->WriteInt( armor );
 	savefile->WriteInt( maxarmor );
+	savefile->WriteInt( mana );
 
 	for( i = 0; i < MAX_AMMO; i++ ) {
 		savefile->WriteInt( ammo[ i ] );
@@ -481,6 +482,7 @@ void idInventory::Restore( idRestoreGame *savefile ) {
 	savefile->ReadInt( powerups );
 	savefile->ReadInt( armor );
 	savefile->ReadInt( maxarmor );
+	savefile->ReadInt( mana );
 
 	for( i = 0; i < MAX_AMMO; i++ ) {
 		savefile->ReadInt( ammo[ i ] );
@@ -605,6 +607,27 @@ const char * idInventory::AmmoClassForWeaponClass( const char *weapon_classname 
 	}
 
 	return decl->dict.GetString( "ammoType" );
+}
+
+/*
+==============
+idInventory::DetermineManaAvailability
+==============
+*/
+bool idInventory::DetermineManaAvailability( idPlayer* owner, int manaAmount, int manaMax ) {
+	if ( mana == manaMax ) {
+		return false;
+	}
+
+	// If we are picking up mana and we aren't currently full.
+	if ( manaAmount && mana != manaMax ) {
+		mana += manaAmount;
+		if ( mana > manaMax ) {
+			mana = manaMax;
+		}
+		return true;
+	}		
+	return false;
 }
 
 // RAVEN BEGIN
