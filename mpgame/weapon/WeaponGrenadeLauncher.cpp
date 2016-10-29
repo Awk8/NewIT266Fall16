@@ -93,7 +93,7 @@ stateResult_t rvWeaponGrenadeLauncher::State_Idle( const stateParms_t& parms ) {
 	};	
 	switch ( parms.stage ) {
 		case STAGE_INIT:
-			if ( !AmmoAvailable ( ) ) {
+			if ( !manaAvailable ( ) ) {
 				SetStatus ( WP_OUTOFAMMO );
 			} else {
 				SetStatus ( WP_READY );
@@ -108,24 +108,24 @@ stateResult_t rvWeaponGrenadeLauncher::State_Idle( const stateParms_t& parms ) {
 				return SRESULT_DONE;
 			}		
 			if ( !clipSize ) {
-				if ( wsfl.attack && AmmoAvailable ( ) ) {
+				if ( wsfl.attack && manaAvailable ( ) ) {
 					SetState ( "Fire", 0 );
 					return SRESULT_DONE;
 				}
 			} else { 
-				if ( gameLocal.time > nextAttackTime && wsfl.attack && AmmoInClip ( ) ) {
+				if ( gameLocal.time > nextAttackTime && wsfl.attack ) {
 					SetState ( "Fire", 0 );
 					return SRESULT_DONE;
 				}  
 						
-				if ( wsfl.attack && AutoReload() && !AmmoInClip ( ) && AmmoAvailable () ) {
+				/*if ( wsfl.attack && AutoReload() && !AmmoInClip ( ) && AmmoAvailable () ) {
 					SetState ( "Reload", 4 );
 					return SRESULT_DONE;			
 				}
 				if ( wsfl.netReload || (wsfl.reload && AmmoInClip() < ClipSize() && AmmoAvailable()>AmmoInClip()) ) {
 					SetState ( "Reload", 4 );
 					return SRESULT_DONE;			
-				}
+				}*/
 			}
 			return SRESULT_WAIT;
 	}

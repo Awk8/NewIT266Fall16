@@ -65,6 +65,7 @@ const int SPECTATE_RAISE = 25;
 const int	HEALTH_PULSE		= 1000;			// Regen rate and heal leak rate (for health > 100)
 const int	ARMOR_PULSE			= 1000;			// armor ticking down due to being higher than maxarmor
 const int	AMMO_REGEN_PULSE	= 1000;			// ammo regen in Arena CTF
+const int	MANA_REGEN_PULSE	= 1000;
 const int	POWERUP_BLINKS		= 5;			// Number of times the powerup wear off sound plays
 const int	POWERUP_BLINK_TIME	= 1000;			// Time between powerup wear off sounds
 const float MIN_BOB_SPEED		= 5.0f;			// minimum speed to bob and play run/walk animations at
@@ -197,6 +198,7 @@ idInventory::Clear
 */
 void idInventory::Clear( void ) {
 	maxHealth			= 0;
+	maxMana				= 0;
 	weapons				= 0;
 	carryOverWeapons	= 0;
 	powerups			= 0;
@@ -334,6 +336,7 @@ void idInventory::RestoreInventory( idPlayer *owner, const idDict &dict ) {
 
 	// health/armor
 	maxHealth		= dict.GetInt( "maxhealth", "500" );
+	maxMana			= dict.GetInt( "maxMana", "100" );
 	armor			= dict.GetInt( "armor", "50" );
 	maxarmor		= dict.GetInt( "maxarmor", "100" );
 
@@ -401,7 +404,7 @@ void idInventory::Save( idSaveGame *savefile ) const {
 	savefile->WriteInt( powerups );
 	savefile->WriteInt( armor );
 	savefile->WriteInt( maxarmor );
-	savefile->WriteInt( mana );
+	savefile->WriteInt( maxMana );
 
 	for( i = 0; i < MAX_AMMO; i++ ) {
 		savefile->WriteInt( ammo[ i ] );
@@ -482,7 +485,7 @@ void idInventory::Restore( idRestoreGame *savefile ) {
 	savefile->ReadInt( powerups );
 	savefile->ReadInt( armor );
 	savefile->ReadInt( maxarmor );
-	savefile->ReadInt( mana );
+	savefile->ReadInt( maxMana );
 
 	for( i = 0; i < MAX_AMMO; i++ ) {
 		savefile->ReadInt( ammo[ i ] );
@@ -614,16 +617,16 @@ const char * idInventory::AmmoClassForWeaponClass( const char *weapon_classname 
 idInventory::DetermineManaAvailability
 ==============
 */
-bool idInventory::DetermineManaAvailability( idPlayer* owner, int manaAmount, int manaMax ) {
-	if ( mana == manaMax ) {
+bool idInventory::DetermineManaAvailability( idPlayer* owner, int manaAmount) {
+	if ( mana == maxMana) {
 		return false;
 	}
 
 	// If we are picking up mana and we aren't currently full.
-	if ( manaAmount && mana != manaMax ) {
+	if ( manaAmount && mana != maxMana ) {
 		mana += manaAmount;
-		if ( mana > manaMax ) {
-			mana = manaMax;
+		if ( mana > maxMana ) {
+			mana = maxMana;
 		}
 		return true;
 	}		
@@ -3352,10 +3355,10 @@ bool idPlayer::UserInfoChanged( void ) {
 	}
 
 	if( PowerUpActive( POWERUP_GUARD ) ) {
-		inventory.maxHealth = 200;
+		inventory.maxHealth = 500;
 		inventory.maxarmor = 200;
 	} else {
-		inventory.maxHealth = spawnArgs.GetInt( "maxhealth", "100" );
+		inventory.maxHealth = spawnArgs.GetInt( "maxhealth", "500" );
 		inventory.maxarmor = spawnArgs.GetInt( "maxarmor", "100" );
 	}
 
@@ -11251,6 +11254,15 @@ idPlayer::Event_SetArmor
 */
 void idPlayer::Event_SetArmor( float newArmor ) {
 	inventory.armor = idMath::ClampInt( 0 , inventory.maxarmor, newArmor );
+}
+
+/*
+=============
+idPlayer::Event_SetMana
+=============
+*/
+void idPlayer::Event_SetMana( float newMana ) {
+	inventory.mana = idMath::ClampInt( 0 , inventory.maxMana, newMana );
 }
 
 /*

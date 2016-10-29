@@ -203,6 +203,7 @@ public:
 	int						powerups;
 	int						armor;
 	int						maxarmor;
+	int						maxMana;
 	int						mana;
 	int						ammo[ MAX_AMMO ];
 	int						clip[ MAX_WEAPONS ];
@@ -244,7 +245,7 @@ public:
 	int						AmmoIndexForWeaponClass( const char *weapon_classname, int *ammoRequired = NULL );
 	const char *			AmmoClassForWeaponClass( const char *weapon_classname);
 
-	bool					DetermineManaAvailability( idPlayer* owner, int manaAmount, int manaMax );
+	bool					DetermineManaAvailability( idPlayer* owner, int manaAmount );
 
 // RAVEN BEGIN
 // mekberg: if the player can pick up the ammo at this time

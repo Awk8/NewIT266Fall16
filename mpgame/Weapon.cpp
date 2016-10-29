@@ -2344,13 +2344,13 @@ const char* rvWeapon::GetAmmoNameForIndex( int index ) {
 
 /*
 ================
-rvWeapon::TotalAmmoCount
+rvWeapon::ManaAvailable
 ================
 */
 int rvWeapon::manaAvailable( void ) const 
 {
 	if ( owner ) {
-		return owner->inventory.HasMana( ammoType, ammoRequired );
+		return owner->inventory.HasMana( manaRequired );
 	} else {
 		return 0;
 	}
