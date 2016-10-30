@@ -199,6 +199,7 @@ idInventory::Clear
 void idInventory::Clear( void ) {
 	maxHealth			= 0;
 	maxMana				= 0;
+	mana				= 0;
 	weapons				= 0;
 	carryOverWeapons	= 0;
 	powerups			= 0;
@@ -274,6 +275,9 @@ void idInventory::GetPersistantData( idDict &dict ) {
 	// armor
 	dict.SetInt( "armor", armor );
 
+	// mana
+	dict.SetInt( "mana", mana );
+
 	// ammo
 	for( i = 0; i < MAX_AMMOTYPES; i++ ) {
 		name = rvWeapon::GetAmmoNameForIndex( i );
@@ -337,6 +341,7 @@ void idInventory::RestoreInventory( idPlayer *owner, const idDict &dict ) {
 	// health/armor
 	maxHealth		= dict.GetInt( "maxhealth", "500" );
 	maxMana			= dict.GetInt( "maxMana", "100" );
+	mana			= dict.GetInt( "mana", "100" );
 	armor			= dict.GetInt( "armor", "50" );
 	maxarmor		= dict.GetInt( "maxarmor", "100" );
 
