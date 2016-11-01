@@ -9861,8 +9861,8 @@ void idPlayer::Killed( idEntity *inflictor, idEntity *attacker, int damage, cons
 							killer->GiveXP( -100 );
 						} else {
 							// Killed by enemy
-							float cashAward = (float) gameLocal.mpGame.mpBuyingManager.GetOpponentKillCashAward();
-							float XPAward = (float) gameLocal.mpGame.mpBuyingManager.GetOpponentKillXPAward();
+							float cashAward = (float) gameLocal.mpGame.mpBuyingManager.GetOpponentKillCashAward( playerLevel );
+							float XPAward = (float) gameLocal.mpGame.mpBuyingManager.GetOpponentKillXPAward( playerLevel );
 							killer->GiveCash( cashAward );
 							killer->GiveXP( XPAward );
 						}
@@ -14174,9 +14174,41 @@ void idPlayer::SetLevel( float XP )
 {
 	if ( XP <= 0 )
 	{
-		
+		playerLevel = 1
 	}
-	else if ( XP >= 5000 )
+	else if ( XP >= 10 && XP < 30)
+	{
+		playerLevel = 2;
+	}
+	else if ( XP >= 30 && XP < 60)
+	{
+		playerLevel = 3;
+	}
+	else if ( XP >= 60 && XP < 100)
+	{
+		playerLevel = 4;
+	}
+	else if ( XP >= 100 && XP < 150)
+	{
+		playerLevel = 5;
+	}
+	else if ( XP >= 150 && XP < 210)
+	{
+		playerLevel = 6;
+	}
+	else if ( XP >= 270 && XP < 340)
+	{
+		playerLevel = 7;
+	}
+	else if ( XP >= 340 && XP < 420)
+	{
+		playerLevel = 8;
+	}
+	else if ( XP >= 420 && XP < 510)
+	{
+		playerLevel = 9;
+	}
+	else if ( XP >= 510 )
 	{
 		playerLevel = 10;
 	}

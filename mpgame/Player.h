@@ -785,6 +785,8 @@ public:
 	void					ResetCash();
 	void					ResetXP();
 	void					ResetLevel();
+
+	int						playerLevel;
 // RITUAL END
 
 	bool					IsFakeClient( void ) const { return entityNumber == ENTITYNUM_NONE; }

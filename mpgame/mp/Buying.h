@@ -29,8 +29,8 @@ public:
 	~riBuyingManager();
 
 	int GetIntValueForKey( const char* keyName, int defaultValue );
-	int GetOpponentKillCashAward( void );
-	int GetOpponentKillXPAward( void );
+	int GetOpponentKillCashAward( int playerLevel );
+	int GetOpponentKillXPAward( int playerLevel );
 
 	void Reset( void ) { opponentKillFragCount = -1; }
 };

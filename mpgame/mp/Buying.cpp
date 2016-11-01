@@ -51,8 +51,8 @@ int riBuyingManager::GetIntValueForKey( const char* keyName, int defaultValue ) 
 	return defaultValue;
 }
 
-int riBuyingManager::GetOpponentKillCashAward( void ) {
-	switch ( opponentLevel )
+int riBuyingManager::GetOpponentKillCashAward( int playerLevel ) {
+	switch ( playerLevel )
 	{
 		case 1:
 			opponentKillCashAward = 500;
@@ -91,38 +91,38 @@ int riBuyingManager::GetOpponentKillCashAward( void ) {
 	return opponentKillCashAward;
 }
 
-int riBuyingManager::GetOpponentKillXPAward( void ) {
-	switch ( opponentLevel )
+int riBuyingManager::GetOpponentKillXPAward( int playerLevel ) {
+	switch ( playerLevel )
 	{
 		case 1:
-			opponentKillXPAward = 100;
+			opponentKillXPAward = 10;
 			break;
 		case 2:
-			opponentKillXPAward = 200;
+			opponentKillXPAward = 20;
 			break;
 		case 3:
-			opponentKillXPAward = 300;
+			opponentKillXPAward = 30;
 			break;
 		case 4:
-			opponentKillXPAward = 400;
+			opponentKillXPAward = 40;
 			break;
 		case 5:
-			opponentKillXPAward = 500;
+			opponentKillXPAward = 50;
 			break;
 		case 6:
-			opponentKillXPAward = 600;
+			opponentKillXPAward = 60;
 			break;
 		case 7:
-			opponentKillXPAward = 700;
+			opponentKillXPAward = 70;
 			break;
 		case 8:
-			opponentKillXPAward = 800;
+			opponentKillXPAward = 80;
 			break;
 		case 9:
-			opponentKillXPAward = 900;
+			opponentKillXPAward = 90;
 			break;
 		case 10:
-			opponentKillXPAward = 1000;
+			opponentKillXPAward = 100;
 			break;
 		default:
 			opponentKillXPAward = 0;
