@@ -197,6 +197,9 @@ idInventory::Clear
 ==============
 */
 void idInventory::Clear( void ) {
+	level				= 0;
+	maxLevel			= 0;
+	experience			= 0;
 	maxHealth			= 0;
 	maxMana				= 0;
 	mana				= 0;
@@ -340,7 +343,8 @@ void idInventory::RestoreInventory( idPlayer *owner, const idDict &dict ) {
 
 	// health/armor
 	maxHealth		= dict.GetInt( "maxhealth", "500" );
-	maxMana			= dict.GetInt( "maxMana", "100" );
+	maxLevel		= dict.GetInt( "maxLevel", "10" );
+	maxMana			= dict.GetInt( "maxMana", "100" );	
 	mana			= dict.GetInt( "mana", "100" );
 	armor			= dict.GetInt( "armor", "50" );
 	maxarmor		= dict.GetInt( "maxarmor", "100" );
@@ -410,6 +414,8 @@ void idInventory::Save( idSaveGame *savefile ) const {
 	savefile->WriteInt( armor );
 	savefile->WriteInt( maxarmor );
 	savefile->WriteInt( maxMana );
+	savefile->WriteInt( mana );
+	savefile->WriteInt( maxLevel );
 
 	for( i = 0; i < MAX_AMMO; i++ ) {
 		savefile->WriteInt( ammo[ i ] );
@@ -491,6 +497,8 @@ void idInventory::Restore( idRestoreGame *savefile ) {
 	savefile->ReadInt( armor );
 	savefile->ReadInt( maxarmor );
 	savefile->ReadInt( maxMana );
+	savefile->ReadInt( mana );
+	savefile->ReadInt( maxLevel );
 
 	for( i = 0; i < MAX_AMMO; i++ ) {
 		savefile->ReadInt( ammo[ i ] );
@@ -9844,15 +9852,19 @@ void idPlayer::Killed( idEntity *inflictor, idEntity *attacker, int damage, cons
 							// Killed by self
 							float cashAward = (float) gameLocal.mpGame.mpBuyingManager.GetIntValueForKey( "playerCashAward_killingSelf", 0 );
 							killer->GiveCash( cashAward );
+							killer->GiveXP( -100 );
 						}
 						else if ( gameLocal.IsTeamGame() && killer->team == team ) {
 							// Killed by teammate
 							float cashAward = (float) gameLocal.mpGame.mpBuyingManager.GetIntValueForKey( "playerCashAward_killingTeammate", 0 );
 							killer->GiveCash( cashAward );
+							killer->GiveXP( -100 );
 						} else {
 							// Killed by enemy
 							float cashAward = (float) gameLocal.mpGame.mpBuyingManager.GetOpponentKillCashAward();
+							float XPAward = (float) gameLocal.mpGame.mpBuyingManager.GetOpponentKillXPAward();
 							killer->GiveCash( cashAward );
+							killer->GiveXP( XPAward );
 						}
 					}
 				}
@@ -14138,6 +14150,37 @@ void idPlayer::ClampCash( float minCash, float maxCash )
 		buyMenuCash = maxCash;
 }
 
+void idPlayer::ClampXP( float minXP, float maxXP )
+{
+	if( playerXP < minXP )
+		playerXP = minXP;
+
+	if( playerXP > maxXP )
+		playerXP = maxXP;
+}
+
+void idPlayer::GiveXP( float XPDeltaAmount )
+{
+	float minXP = 0;
+	float maxXP = 6000;
+
+	float oldXP = playerXP;
+	playerXP += XPDeltaAmount;
+	ClampXP( minXP, maxXP );
+	SetLevel( playerXP );
+}
+
+void idPlayer::SetLevel( float XP )
+{
+	if ( XP <= 0 )
+	{
+		
+	}
+	else if ( XP >= 5000 )
+	{
+		playerLevel = 10;
+	}
+}
 void idPlayer::GiveCash( float cashDeltaAmount )
 {
 	//int minCash = gameLocal.mpGame.mpBuyingManager.GetIntValueForKey( "playerMinCash", 0 );

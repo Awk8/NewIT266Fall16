@@ -195,6 +195,7 @@ const int	ASYNC_PLAYER_TOURNEY_STATUS_BITS = idMath::BitsForInteger( PTS_NUM_STA
 class idInventory {
 public:
 	int						level;
+	int						maxLevel;
 	int						experience;
 	int						maxHealth;
 	int						weapons;
@@ -419,6 +420,7 @@ public:
 	int						lastPickupTime;
 
 	float					buyMenuCash;
+	float					playerXP;
 
 	float					handicap; // multiplier for damage/health
 
@@ -774,9 +776,15 @@ public:
 	itemBuyStatus_t			ItemBuyStatus( const char* itemName );
 	bool					CanBuyItem( const char* itemName );
 	void					GiveCash( float cashDeltaAmount );
+	void					GiveXP( float XPDeltaAmount );
 	void					ClampCash( float minCash, float maxCash );
+	void					ClampXP( float minXP, float maxXP );
 	void					SetCash( float newCashAmount );
+	void					SetXP( float newXPAmount );
+	void					SetLevel( float XP );
 	void					ResetCash();
+	void					ResetXP();
+	void					ResetLevel();
 // RITUAL END
 
 	bool					IsFakeClient( void ) const { return entityNumber == ENTITYNUM_NONE; }

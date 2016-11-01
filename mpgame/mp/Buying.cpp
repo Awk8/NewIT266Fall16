@@ -18,6 +18,7 @@
 riBuyingManager::riBuyingManager() :
 	_buyingGameBalanceConstants( NULL ),
 	opponentKillCashAward( 0 ),
+	opponentKillXPAward( 0 ),
 	opponentKillFragCount( -1 ) { }
 
 riBuyingManager::~riBuyingManager() { }
@@ -51,18 +52,81 @@ int riBuyingManager::GetIntValueForKey( const char* keyName, int defaultValue ) 
 }
 
 int riBuyingManager::GetOpponentKillCashAward( void ) {
-	int targetFragCount = gameLocal.serverInfo.GetInt( "si_fragLimit" );
-	if ( opponentKillFragCount != targetFragCount ) {
-		opponentKillFragCount = targetFragCount;
-		if ( idStr::Icmp( gameLocal.serverInfo.GetString( "si_gameType" ), "DM" ) && idStr::Icmp( gameLocal.serverInfo.GetString( "si_gameType" ), "Team DM" ) ) {
-			// only do frag reward scaling in DM/TDM
-			opponentKillCashAward = GetIntValueForKey( "playerCashAward_killingOpponent", 600 );
-		} else {
-			targetFragCount = idMath::ClampInt( GetIntValueForKey( "killingOpponent_minFragAdjust", 10 ), GetIntValueForKey( "killingOpponent_maxFragAdjust",50 ), targetFragCount );
-			int baseVal = GetIntValueForKey( "playerCashAward_killingOpponent", 600 );
-			int fragTarget = GetIntValueForKey( "killingOpponent_bestFragCount", 25 );
-			opponentKillCashAward = ( baseVal * fragTarget ) / targetFragCount;
-		}
+	switch ( opponentLevel )
+	{
+		case 1:
+			opponentKillCashAward = 500;
+			break;
+		case 2:
+			opponentKillCashAward = 550;
+			break;
+		case 3:
+			opponentKillCashAward = 550;
+			break;
+		case 4:
+			opponentKillCashAward = 600;
+			break;
+		case 5:
+			opponentKillCashAward = 700;
+			break;
+		case 6:
+			opponentKillCashAward = 700;
+			break;
+		case 7:
+			opponentKillCashAward = 800;
+			break;
+		case 8:
+			opponentKillCashAward = 900;
+			break;
+		case 9:
+			opponentKillCashAward = 1000;
+			break;
+		case 10:
+			opponentKillCashAward = 1200;
+			break;
+		default:
+			opponentKillCashAward = 0;
+			break;
 	}
 	return opponentKillCashAward;
+}
+
+int riBuyingManager::GetOpponentKillXPAward( void ) {
+	switch ( opponentLevel )
+	{
+		case 1:
+			opponentKillXPAward = 100;
+			break;
+		case 2:
+			opponentKillXPAward = 200;
+			break;
+		case 3:
+			opponentKillXPAward = 300;
+			break;
+		case 4:
+			opponentKillXPAward = 400;
+			break;
+		case 5:
+			opponentKillXPAward = 500;
+			break;
+		case 6:
+			opponentKillXPAward = 600;
+			break;
+		case 7:
+			opponentKillXPAward = 700;
+			break;
+		case 8:
+			opponentKillXPAward = 800;
+			break;
+		case 9:
+			opponentKillXPAward = 900;
+			break;
+		case 10:
+			opponentKillXPAward = 1000;
+			break;
+		default:
+			opponentKillXPAward = 0;
+			break;
+	}
+	return opponentKillXPAward;
 }

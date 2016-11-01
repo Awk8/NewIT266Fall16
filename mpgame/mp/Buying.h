@@ -21,6 +21,7 @@ class riBuyingManager
 private:
 	const idDeclEntityDef*	_buyingGameBalanceConstants;
 	int						opponentKillCashAward;	// latch
+	int						opponentKillXPAward;
 	int						opponentKillFragCount;
 
 public:
@@ -29,6 +30,7 @@ public:
 
 	int GetIntValueForKey( const char* keyName, int defaultValue );
 	int GetOpponentKillCashAward( void );
+	int GetOpponentKillXPAward( void );
 
 	void Reset( void ) { opponentKillFragCount = -1; }
 };
