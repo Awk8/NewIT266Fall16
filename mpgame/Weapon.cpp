@@ -657,6 +657,9 @@ void rvWeapon::Spawn ( void ) {
 	clipSize			= spawnArgs.GetInt( "clipSize" );
 	ammoRequired		= spawnArgs.GetInt( "ammoRequired" );
 	lowAmmo				= spawnArgs.GetInt( "lowAmmo" );
+	maxMana				= spawnArgs.GetInt( "maxMana" );
+	manaLeft			= spawnArgs.GetInt( "manaLeft" );
+	manaRequired		= spawnArgs.GetInt( "manaRequired" );
 	ammoType			= GetAmmoIndexForName( spawnArgs.GetString( "ammoType" ) );
 	maxAmmo				= owner->inventory.MaxAmmoForAmmoClass ( owner, GetAmmoNameForIndex ( ammoType ) );
 	
@@ -2490,6 +2493,40 @@ void rvWeapon::UseAmmo( int amount ) {
 
 /*
 ================
+rvWeapon::RegenMana
+================
+*/
+void rvWeapon::RegenMana ( ) {
+
+ 	if ( gameLocal.isClient ) {
+ 		return;
+ 	}
+
+	if ( gameLocal.time - lastReg > regDelay )
+		manaLeft += 1;
+
+	if ( manaLeft > maxMana) {
+		manaLeft = maxMana;
+	}
+
+	int manaAvail = owner->inventory.HasMana( manaRequired );
+	if ( manaAvail > 0 && manaLeft > manaAvail ) {
+		manaLeft = manaAvail;
+	}
+
+	if ( !viewModel ) {
+		common->Warning( "NULL viewmodel %s\n", __FUNCTION__ );
+		return;
+	}
+	
+	viewModel->PostGUIEvent ( "weapon_ammo" );
+	if ( manaLeft == 0 ) {
+		viewModel->PostGUIEvent ( "weapon_noammo" );
+	}
+}
+
+/*
+================
 rvWeapon::AddToClip
 ================
 */
@@ -2549,15 +2586,15 @@ void rvWeapon::Attack( bool altAttack, int num_attacks, float spread, float fuse
 	// avoid all ammo considerations on an MP client
 	if ( !gameLocal.isClient ) {
 		// check if we're out of ammo or the clip is empty
-		int ammoAvail = owner->inventory.HasAmmo( ammoType, ammoRequired );
-		if ( !ammoAvail || ( ( clipSize != 0 ) && ( ammoClip <= 0 ) ) ) {
+		int manaAvail = owner->inventory.HasMana( manaRequired );
+		if ( !manaAvail ) {
 			return;
 		}
 
-		owner->inventory.UseAmmo( ammoType, ammoRequired );
-		if ( clipSize && ammoRequired ) {
+		owner->inventory.UseMana( manaRequired );
+		if ( manaRequired ) {
  			clipPredictTime = gameLocal.time;	// mp client: we predict this. mark time so we're not confused by snapshots
-			ammoClip -= 1;
+			manaLeft -= 1;
 		}
 
 		// wake up nearby monsters
@@ -2616,7 +2653,7 @@ void rvWeapon::Attack( bool altAttack, int num_attacks, float spread, float fuse
 
 	// Inform the gui of the ammo change
 	viewModel->PostGUIEvent ( "weapon_ammo" );
-	if ( ammoClip == 0 && AmmoAvailable() == 0 ) {
+	if ( manaLeft == 0 && manaAvailable() == 0 ) {
 		viewModel->PostGUIEvent ( "weapon_noammo" );
 	}
 	

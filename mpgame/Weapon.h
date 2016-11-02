@@ -208,6 +208,7 @@ public:
 	int					LowAmmo						( void ) const;
 	int					AmmoRequired				( void ) const;
 	void				AddToClip					( int amount );
+	void				RegenMana					( );
 	void				UseAmmo						( int amount );
 	void				SetClip						( int amount );
 	int					TotalAmmoCount				( void ) const;
@@ -369,10 +370,12 @@ public:
 	int								ammoType;
 	int								ammoRequired;		// amount of ammo to use each shot.  0 means weapon doesn't need ammo.
 	int								manaRequired;
+	int								manaLeft;
 	int								clipSize;			// 0 means no reload
 	int								ammoClip;
 	int								lowAmmo;			// if ammo in clip hits this threshold, snd_
-	int								maxAmmo;		
+	int								maxAmmo;
+	int								maxMana;
 
  	// multiplayer
  	int								clipPredictTime;
