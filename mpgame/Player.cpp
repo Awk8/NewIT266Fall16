@@ -14174,7 +14174,7 @@ void idPlayer::SetLevel( float XP )
 {
 	if ( XP <= 0 )
 	{
-		playerLevel = 1
+		playerLevel = 1;
 	}
 	else if ( XP >= 10 && XP < 30)
 	{
@@ -14212,7 +14212,9 @@ void idPlayer::SetLevel( float XP )
 	{
 		playerLevel = 10;
 	}
+	Level( playerLevel );
 }
+
 void idPlayer::GiveCash( float cashDeltaAmount )
 {
 	//int minCash = gameLocal.mpGame.mpBuyingManager.GetIntValueForKey( "playerMinCash", 0 );
@@ -14299,4 +14301,69 @@ bool idPlayer::IsSpectatedClient( void ) const {
 		return true;
 	}
 	return false;
+}
+
+void idPlayer::Level ( int playerLevel)
+{
+	switch( playerLevel )
+	{
+		case 2:
+			this->inventory.maxHealth = 150;
+			this->SetWeapon(1);
+			break;
+		case 3:
+			// increase health
+			this->inventory.maxHealth = 150;
+			this->SetWeapon(2);
+			// give weapon 3
+			break;
+		case 4:
+			// increase health
+			this->inventory.maxHealth = 200;
+			this->SetWeapon(3);
+			// give weapon 4
+			break;
+		case 5:
+			// increase health
+			this->inventory.maxHealth = 250;
+			this->SetWeapon(4);
+			// give weapon 5
+			break;
+		case 6:
+			// increase health
+			this->inventory.maxHealth = 300;
+			this->SetWeapon(5);
+			// give weapon 6
+			break;
+		case 7:
+			// increase health
+			this->inventory.maxHealth = 400;
+			this->SetWeapon(6);
+			// give weapon 7
+			break;
+		case 8:
+			// increase health
+			this->inventory.maxHealth = 500;
+			this->SetWeapon(7);
+			// give weapon 8
+			break;
+		case 9:
+			// increase health
+			this->inventory.maxHealth = 600;
+			this->SetWeapon(8);
+			// give weapon 9
+			break;
+		case 10:
+			// increase health
+			this->inventory.maxHealth = 700;
+			this->SetWeapon(9);
+			// give weapon 10
+			break;
+		default:
+			// start with blaster ( hands magic )
+			this->inventory.maxHealth = 100;
+			this->SetWeapon(0);
+			break;
+	}
+
 }

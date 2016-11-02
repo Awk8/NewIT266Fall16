@@ -2502,7 +2502,7 @@ void rvWeapon::RegenMana ( ) {
  		return;
  	}
 
-	if ( gameLocal.time - lastReg > regDelay )
+	//if ( gameLocal.time - lastReg > regDelay )
 		manaLeft += 1;
 
 	if ( manaLeft > maxMana) {

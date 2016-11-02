@@ -167,7 +167,7 @@ stateResult_t rvWeaponGrenadeLauncher::State_Fire ( const stateParms_t& parms ) 
 ================
 rvWeaponGrenadeLauncher::State_Reload
 ================
-
+*/	
 stateResult_t rvWeaponGrenadeLauncher::State_Reload ( const stateParms_t& parms ) {
 	enum {
 		STAGE_INIT,
@@ -199,4 +199,4 @@ stateResult_t rvWeaponGrenadeLauncher::State_Reload ( const stateParms_t& parms 
 	}
 	return SRESULT_ERROR;
 }
-*/			
+		
