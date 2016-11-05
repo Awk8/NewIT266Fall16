@@ -357,7 +357,7 @@ void idMultiplayerGame::Clear() {
 	pureReady = false;
 	scoreBoard = NULL;
 	buyMenu = NULL;
-	isBuyingAllowedRightNow = false;
+	isBuyingAllowedRightNow = true;
 	statSummary = NULL;
 	mainGui = NULL;
 	msgmodeGui = NULL;

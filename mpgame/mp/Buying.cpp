@@ -61,10 +61,10 @@ int riBuyingManager::GetOpponentKillCashAward( int playerLevel ) {
 			opponentKillCashAward = 550;
 			break;
 		case 3:
-			opponentKillCashAward = 550;
+			opponentKillCashAward = 600;
 			break;
 		case 4:
-			opponentKillCashAward = 600;
+			opponentKillCashAward = 650;
 			break;
 		case 5:
 			opponentKillCashAward = 700;

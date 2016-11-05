@@ -1198,8 +1198,8 @@ idPlayer::idPlayer() {
 // squirrel: added DeadZone multiplayer mode
 	allowedToRespawn		= true;
 // squirrel: Mode-agnostic buymenus
-	inBuyZone				= false;
-	inBuyZonePrev			= false;
+	inBuyZone				= true;
+	inBuyZonePrev			= true;
 // RITUAL END
 	spectating				= false;
 	spectator				= 0;
@@ -3501,14 +3501,18 @@ void idPlayer::UpdateHudAmmo( idUserInterface *_hud ) {
 	int inclip;
 	int ammoamount;
 
+	if (mana < inventory.maxMana ){
+		mana += 1;	
+	}
+
 	assert( weapon );
 	assert( _hud );
 
 	inclip		= weapon->AmmoInClip();
 	ammoamount	= weapon->AmmoAvailable();
 
-	if ( ammoamount < 0 ) {
-		// show infinite ammo
+	if ( mana < 0 ) {
+		 //show infinite mana
 		_hud->SetStateString( "player_ammo", "-1" );
 		_hud->SetStateString( "player_totalammo", "-1" );
 		_hud->SetStateFloat ( "player_ammopct", 1.0f );
@@ -3523,12 +3527,12 @@ void idPlayer::UpdateHudAmmo( idUserInterface *_hud ) {
 		}
 		_hud->SetStateInt ( "player_ammo", inclip );
 	} else {
-		_hud->SetStateFloat ( "player_ammopct", (float)ammoamount / (float)weapon->maxAmmo );
-		_hud->SetStateInt ( "player_totalammo", ammoamount );
+		_hud->SetStateFloat ( "player_ammopct", (float)mana / (float)inventory.maxMana );
+		_hud->SetStateInt ( "player_totalammo", mana );
 		_hud->SetStateInt ( "player_ammo", -1 );
 	} 
 	
-	_hud->SetStateBool( "player_ammo_empty", ( ammoamount == 0 ) );
+	_hud->SetStateBool( "player_ammo_empty", ( mana == 0 ) );
 }
 
 /*
@@ -4236,6 +4240,7 @@ bool idPlayer::Give( const char *statname, const char *value, bool dropped ) {
 		vehicleController.Give ( statname, value );
 	}
 
+	int boundaryMana = inventory.maxMana;
 	int boundaryHealth = inventory.maxHealth;
 	int boundaryArmor = inventory.maxarmor;
 	if( PowerUpActive( POWERUP_GUARD ) ) {
