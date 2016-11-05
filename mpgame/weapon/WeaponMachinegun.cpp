@@ -30,7 +30,7 @@ private:
 
 	stateResult_t		State_Idle			( const stateParms_t& parms );
 	stateResult_t		State_Fire			( const stateParms_t& parms );
-	//stateResult_t		State_Reload		( const stateParms_t& parms );
+	stateResult_t		State_Reload		( const stateParms_t& parms );
 	stateResult_t		State_Flashlight	( const stateParms_t& parms );
 
 	CLASS_STATES_PROTOTYPE ( rvWeaponMachinegun );
@@ -163,16 +163,14 @@ rvWeaponMachinegun::State_Idle
 ================
 */
 stateResult_t rvWeaponMachinegun::State_Idle( const stateParms_t& parms ) {
-	clipSize = 0;
-
 	enum {
 		STAGE_INIT,
 		STAGE_WAIT,
 	};	
 	switch ( parms.stage ) {
 		case STAGE_INIT:
-			if ( !manaAvailable ( ) ) {
-				SetStatus ( WP_NOMANA );
+			if ( !AmmoAvailable ( ) ) {
+				SetStatus ( WP_OUTOFAMMO );
 			} else {
 				SetStatus ( WP_READY );
 			}
@@ -193,7 +191,7 @@ stateResult_t rvWeaponMachinegun::State_Idle( const stateParms_t& parms ) {
 				fireHeld = false;
 			}
 			if ( !clipSize ) {
-				if ( !fireHeld && gameLocal.time > nextAttackTime && wsfl.attack && manaAvailable ( ) ) {
+				if ( !fireHeld && gameLocal.time > nextAttackTime && wsfl.attack && AmmoAvailable ( ) ) {
 					SetState ( "Fire", 0 );
 					return SRESULT_DONE;
 				}
@@ -202,14 +200,14 @@ stateResult_t rvWeaponMachinegun::State_Idle( const stateParms_t& parms ) {
 					SetState ( "Fire", 0 );
 					return SRESULT_DONE;
 				}  
-				/*if ( wsfl.attack && AutoReload() && !AmmoInClip ( ) && AmmoAvailable () ) {
+				if ( wsfl.attack && AutoReload() && !AmmoInClip ( ) && AmmoAvailable () ) {
 					SetState ( "Reload", 4 );
 					return SRESULT_DONE;			
 				}
 				if ( wsfl.netReload || (wsfl.reload && AmmoInClip() < ClipSize() && AmmoAvailable()>AmmoInClip()) ) {
 					SetState ( "Reload", 4 );
 					return SRESULT_DONE;			
-				}				*/
+				}				
 			}
 			return SRESULT_WAIT;
 	}
@@ -240,7 +238,7 @@ stateResult_t rvWeaponMachinegun::State_Fire ( const stateParms_t& parms ) {
 			return SRESULT_STAGE ( STAGE_WAIT );
 	
 		case STAGE_WAIT:		
-			if ( !fireHeld && wsfl.attack && gameLocal.time >= nextAttackTime && manaAvailable() && !wsfl.lowerWeapon ) {
+			if ( !fireHeld && wsfl.attack && gameLocal.time >= nextAttackTime && AmmoInClip() && !wsfl.lowerWeapon ) {
 				SetState ( "Fire", 0 );
 				return SRESULT_DONE;
 			}
@@ -261,7 +259,7 @@ stateResult_t rvWeaponMachinegun::State_Fire ( const stateParms_t& parms ) {
 rvWeaponMachinegun::State_Reload
 ================
 */
-/*stateResult_t rvWeaponMachinegun::State_Reload ( const stateParms_t& parms ) {
+stateResult_t rvWeaponMachinegun::State_Reload ( const stateParms_t& parms ) {
 	enum {
 		STAGE_INIT,
 		STAGE_WAIT,
@@ -291,7 +289,7 @@ rvWeaponMachinegun::State_Reload
 			return SRESULT_WAIT;
 	}
 	return SRESULT_ERROR;
-}*/
+}
 			
 
 /*

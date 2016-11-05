@@ -65,7 +65,7 @@ const int SPECTATE_RAISE = 25;
 const int	HEALTH_PULSE		= 1000;			// Regen rate and heal leak rate (for health > 100)
 const int	ARMOR_PULSE			= 1000;			// armor ticking down due to being higher than maxarmor
 const int	AMMO_REGEN_PULSE	= 1000;			// ammo regen in Arena CTF
-const int	MANA_REGEN_PULSE	= 1000;
+//const int	MANA_REGEN_PULSE	= 1000;
 const int	POWERUP_BLINKS		= 5;			// Number of times the powerup wear off sound plays
 const int	POWERUP_BLINK_TIME	= 1000;			// Time between powerup wear off sounds
 const float MIN_BOB_SPEED		= 5.0f;			// minimum speed to bob and play run/walk animations at
@@ -201,8 +201,8 @@ void idInventory::Clear( void ) {
 	maxLevel			= 0;
 	experience			= 0;
 	maxHealth			= 0;
-	maxMana				= 0;
-	mana				= 0;
+	//maxMana				= 0;
+	//mana				= 0;
 	weapons				= 0;
 	carryOverWeapons	= 0;
 	powerups			= 0;
@@ -279,7 +279,7 @@ void idInventory::GetPersistantData( idDict &dict ) {
 	dict.SetInt( "armor", armor );
 
 	// mana
-	dict.SetInt( "mana", mana );
+	//dict.SetInt( "mana", mana );
 
 	// ammo
 	for( i = 0; i < MAX_AMMOTYPES; i++ ) {
@@ -342,10 +342,10 @@ void idInventory::RestoreInventory( idPlayer *owner, const idDict &dict ) {
 	//Clear();
 
 	// health/armor
-	maxHealth		= dict.GetInt( "maxhealth", "500" );
+	maxHealth		= dict.GetInt( "maxhealth", "100" );
 	maxLevel		= dict.GetInt( "maxLevel", "10" );
-	maxMana			= dict.GetInt( "maxMana", "100" );	
-	mana			= dict.GetInt( "mana", "100" );
+	//maxMana			= dict.GetInt( "maxMana", "100" );	
+	//mana			= dict.GetInt( "mana", "100" );
 	armor			= dict.GetInt( "armor", "50" );
 	maxarmor		= dict.GetInt( "maxarmor", "100" );
 
@@ -413,8 +413,8 @@ void idInventory::Save( idSaveGame *savefile ) const {
 	savefile->WriteInt( powerups );
 	savefile->WriteInt( armor );
 	savefile->WriteInt( maxarmor );
-	savefile->WriteInt( maxMana );
-	savefile->WriteInt( mana );
+	//savefile->WriteInt( maxMana );
+	//savefile->WriteInt( mana );
 	savefile->WriteInt( maxLevel );
 
 	for( i = 0; i < MAX_AMMO; i++ ) {
@@ -496,8 +496,8 @@ void idInventory::Restore( idRestoreGame *savefile ) {
 	savefile->ReadInt( powerups );
 	savefile->ReadInt( armor );
 	savefile->ReadInt( maxarmor );
-	savefile->ReadInt( maxMana );
-	savefile->ReadInt( mana );
+	//savefile->ReadInt( maxMana );
+	//savefile->ReadInt( mana );
 	savefile->ReadInt( maxLevel );
 
 	for( i = 0; i < MAX_AMMO; i++ ) {
@@ -630,7 +630,7 @@ const char * idInventory::AmmoClassForWeaponClass( const char *weapon_classname 
 idInventory::DetermineManaAvailability
 ==============
 */
-bool idInventory::DetermineManaAvailability( idPlayer* owner, int manaAmount) {
+/*bool idInventory::DetermineManaAvailability( idPlayer* owner, int manaAmount) {
 	if ( mana == maxMana) {
 		return false;
 	}
@@ -644,7 +644,7 @@ bool idInventory::DetermineManaAvailability( idPlayer* owner, int manaAmount) {
 		return true;
 	}		
 	return false;
-}
+}*/
 
 // RAVEN BEGIN
 // mekberg: if the player can pick up ammo at this time
@@ -1062,19 +1062,19 @@ void idInventory::Drop( const idDict &spawnArgs, const char *weapon_classname, i
 idInventory::HasMana
 ===============
 */
-int idInventory::HasMana( int amount )
+/*int idInventory::HasMana( int amount )
 {
 	if ( mana <= 0 )
 		return -1;
 	return mana / amount;
-}
+}*/
 
 /*
 ===============
 idInventory::UseMana
 ===============
 */
-bool idInventory::UseMana( int amount ) {
+/*bool idInventory::UseMana( int amount ) {
 	if ( !HasMana( amount ) ) {
 		return false;
 	}
@@ -1086,7 +1086,7 @@ bool idInventory::UseMana( int amount ) {
 	}
 
 	return true;
-}
+}*/
 
 /*
 ===============
@@ -1198,8 +1198,8 @@ idPlayer::idPlayer() {
 // squirrel: added DeadZone multiplayer mode
 	allowedToRespawn		= true;
 // squirrel: Mode-agnostic buymenus
-	inBuyZone				= true;
-	inBuyZonePrev			= true;
+	inBuyZone				= false; //true;
+	inBuyZonePrev			= false; //true;
 // RITUAL END
 	spectating				= false;
 	spectator				= 0;
@@ -3368,10 +3368,10 @@ bool idPlayer::UserInfoChanged( void ) {
 	}
 
 	if( PowerUpActive( POWERUP_GUARD ) ) {
-		inventory.maxHealth = 500;
-		inventory.maxarmor = 200;
+		inventory.maxHealth = 100;
+		inventory.maxarmor = 100;
 	} else {
-		inventory.maxHealth = spawnArgs.GetInt( "maxhealth", "500" );
+		inventory.maxHealth = spawnArgs.GetInt( "maxhealth", "100" );
 		inventory.maxarmor = spawnArgs.GetInt( "maxarmor", "100" );
 	}
 
@@ -3501,9 +3501,9 @@ void idPlayer::UpdateHudAmmo( idUserInterface *_hud ) {
 	int inclip;
 	int ammoamount;
 
-	if (mana < inventory.maxMana ){
-		mana += 1;	
-	}
+	//if (mana < inventory.maxMana ){
+		//mana += 1;	
+	//}
 
 	assert( weapon );
 	assert( _hud );
@@ -3511,7 +3511,8 @@ void idPlayer::UpdateHudAmmo( idUserInterface *_hud ) {
 	inclip		= weapon->AmmoInClip();
 	ammoamount	= weapon->AmmoAvailable();
 
-	if ( mana < 0 ) {
+	//if ( mana < 0 ) {
+	if ( ammoamount < 0 ) {
 		 //show infinite mana
 		_hud->SetStateString( "player_ammo", "-1" );
 		_hud->SetStateString( "player_totalammo", "-1" );
@@ -3527,12 +3528,15 @@ void idPlayer::UpdateHudAmmo( idUserInterface *_hud ) {
 		}
 		_hud->SetStateInt ( "player_ammo", inclip );
 	} else {
-		_hud->SetStateFloat ( "player_ammopct", (float)mana / (float)inventory.maxMana );
-		_hud->SetStateInt ( "player_totalammo", mana );
+		//_hud->SetStateFloat ( "player_ammopct", (float)mana / (float)inventory.maxMana );
+		//_hud->SetStateInt ( "player_totalammo", mana );
+		_hud->SetStateFloat ( "player_ammopct", (float)ammoamount / (float)weapon->maxAmmo );
+		_hud->SetStateInt ( "player_totalammo", ammoamount );
 		_hud->SetStateInt ( "player_ammo", -1 );
 	} 
 	
-	_hud->SetStateBool( "player_ammo_empty", ( mana == 0 ) );
+	//_hud->SetStateBool( "player_ammo_empty", ( mana == 0 ) );
+	_hud->SetStateBool( "player_ammo_empty", ( ammoamount == 0 ) );
 }
 
 /*
@@ -14217,7 +14221,7 @@ void idPlayer::SetLevel( float XP )
 	{
 		playerLevel = 10;
 	}
-	Level( playerLevel );
+	PLevel( playerLevel );
 }
 
 void idPlayer::GiveCash( float cashDeltaAmount )
@@ -14308,66 +14312,76 @@ bool idPlayer::IsSpectatedClient( void ) const {
 	return false;
 }
 
-void idPlayer::Level ( int playerLevel)
+void idPlayer::PLevel ( int pLevel)
 {
-	switch( playerLevel )
+	switch( pLevel )
 	{
 		case 2:
 			this->inventory.maxHealth = 150;
 			this->SetWeapon(1);
+			playerLevel = 2;
 			break;
 		case 3:
 			// increase health
 			this->inventory.maxHealth = 150;
 			this->SetWeapon(2);
+			playerLevel = 3;
 			// give weapon 3
 			break;
 		case 4:
 			// increase health
 			this->inventory.maxHealth = 200;
 			this->SetWeapon(3);
+			playerLevel = 4;
 			// give weapon 4
 			break;
 		case 5:
 			// increase health
 			this->inventory.maxHealth = 250;
 			this->SetWeapon(4);
+			playerLevel = 5;
 			// give weapon 5
 			break;
 		case 6:
 			// increase health
 			this->inventory.maxHealth = 300;
 			this->SetWeapon(5);
+			playerLevel = 6;
 			// give weapon 6
 			break;
 		case 7:
 			// increase health
 			this->inventory.maxHealth = 400;
 			this->SetWeapon(6);
+			playerLevel = 7;
 			// give weapon 7
 			break;
 		case 8:
 			// increase health
 			this->inventory.maxHealth = 500;
 			this->SetWeapon(7);
+			playerLevel = 8;
 			// give weapon 8
 			break;
 		case 9:
 			// increase health
 			this->inventory.maxHealth = 600;
 			this->SetWeapon(8);
+			playerLevel = 9;
 			// give weapon 9
 			break;
 		case 10:
 			// increase health
 			this->inventory.maxHealth = 700;
 			this->SetWeapon(9);
+			playerLevel = 10;
 			// give weapon 10
 			break;
 		default:
 			// start with blaster ( hands magic )
 			this->inventory.maxHealth = 100;
 			this->SetWeapon(0);
+			playerLevel = 1;
 			break;
 	}
 

@@ -785,7 +785,7 @@ public:
 	void					ResetCash();
 	void					ResetXP();
 	void					ResetLevel();
-	void					Level( int playerLevel );
+	void					PLevel( int pLevel );
 
 	int						playerLevel;
 // RITUAL END

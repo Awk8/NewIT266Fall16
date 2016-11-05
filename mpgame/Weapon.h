@@ -17,7 +17,7 @@
 typedef enum {
 	WP_READY,
 	WP_OUTOFAMMO,
-	WP_NOMANA,
+	//WP_NOMANA,
 	WP_RELOAD,
 	WP_HOLSTERED,
 	WP_RISING,
@@ -195,8 +195,8 @@ public:
 	void				NetCatchup					( void );
 
 	//Mana
-	int					manaAvailable				( void ) const;
-	void				UseMana						( int amount );
+	//int				manaAvailable				( void ) const;
+	//void				UseMana						( int amount );
 
 	// Ammo
 	static int			GetAmmoIndexForName			( const char *ammoname );
@@ -209,7 +209,7 @@ public:
 	int					LowAmmo						( void ) const;
 	int					AmmoRequired				( void ) const;
 	void				AddToClip					( int amount );
-	void				RegenMana					( );
+	//void				RegenMana					( );
 	void				UseAmmo						( int amount );
 	void				SetClip						( int amount );
 	int					TotalAmmoCount				( void ) const;
@@ -370,13 +370,13 @@ public:
 	// ammo management
 	int								ammoType;
 	int								ammoRequired;		// amount of ammo to use each shot.  0 means weapon doesn't need ammo.
-	int								manaRequired;
-	int								manaLeft;
+	//int								manaRequired;
+	//int								manaLeft;
 	int								clipSize;			// 0 means no reload
 	int								ammoClip;
 	int								lowAmmo;			// if ammo in clip hits this threshold, snd_
 	int								maxAmmo;
-	int								maxMana;
+	//int								maxMana;
 
  	// multiplayer
  	int								clipPredictTime;

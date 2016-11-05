@@ -657,9 +657,9 @@ void rvWeapon::Spawn ( void ) {
 	clipSize			= spawnArgs.GetInt( "clipSize" );
 	ammoRequired		= spawnArgs.GetInt( "ammoRequired" );
 	lowAmmo				= spawnArgs.GetInt( "lowAmmo" );
-	maxMana				= spawnArgs.GetInt( "maxMana" );
-	manaLeft			= spawnArgs.GetInt( "manaLeft" );
-	manaRequired		= spawnArgs.GetInt( "manaRequired" );
+	//maxMana				= spawnArgs.GetInt( "maxMana" );
+	//manaLeft			= spawnArgs.GetInt( "manaLeft" );
+	//manaRequired		= spawnArgs.GetInt( "manaRequired" );
 	ammoType			= GetAmmoIndexForName( spawnArgs.GetString( "ammoType" ) );
 	maxAmmo				= owner->inventory.MaxAmmoForAmmoClass ( owner, GetAmmoNameForIndex ( ammoType ) );
 	
@@ -2350,14 +2350,14 @@ const char* rvWeapon::GetAmmoNameForIndex( int index ) {
 rvWeapon::ManaAvailable
 ================
 */
-int rvWeapon::manaAvailable( void ) const 
+/*int rvWeapon::manaAvailable( void ) const 
 {
 	if ( owner ) {
 		return owner->inventory.HasMana( manaRequired );
 	} else {
 		return 0;
 	}
-}
+}*/
 /*
 ================
 rvWeapon::TotalAmmoCount
@@ -2466,7 +2466,7 @@ void rvWeapon::SetClip ( int amount ) {
 rvWeapon::UseMana
 ================
 */
-void rvWeapon::UseMana( int amount ) {
+/*void rvWeapon::UseMana( int amount ) {
 	owner->inventory.UseMana( amount * ammoRequired );
 	if ( clipSize && ammoRequired ) {
 		ammoClip -= ( amount * ammoRequired );
@@ -2474,7 +2474,7 @@ void rvWeapon::UseMana( int amount ) {
 			ammoClip = 0;
 		}
 	}
-}
+}*/
 
 /*
 ================
@@ -2496,7 +2496,7 @@ void rvWeapon::UseAmmo( int amount ) {
 rvWeapon::RegenMana
 ================
 */
-void rvWeapon::RegenMana ( ) {
+/*void rvWeapon::RegenMana ( ) {
 
  	if ( gameLocal.isClient ) {
  		return;
@@ -2523,7 +2523,7 @@ void rvWeapon::RegenMana ( ) {
 	if ( manaLeft == 0 ) {
 		viewModel->PostGUIEvent ( "weapon_noammo" );
 	}
-}
+}*/
 
 /*
 ================
@@ -2586,15 +2586,20 @@ void rvWeapon::Attack( bool altAttack, int num_attacks, float spread, float fuse
 	// avoid all ammo considerations on an MP client
 	if ( !gameLocal.isClient ) {
 		// check if we're out of ammo or the clip is empty
-		int manaAvail = owner->inventory.HasMana( manaRequired );
-		if ( !manaAvail ) {
+		//int manaAvail = owner->inventory.HasMana( manaRequired );
+		//if ( !manaAvail ) {
+		int ammoAvail = owner->inventory.HasAmmo( ammoType, ammoRequired );
+		if ( !ammoAvail || ( ( clipSize != 0 ) && ( ammoClip <= 0 ) ) ) {
 			return;
 		}
 
-		owner->inventory.UseMana( manaRequired );
-		if ( manaRequired ) {
+		//owner->inventory.UseMana( manaRequired );
+		//if ( manaRequired ) {
+		owner->inventory.UseAmmo( ammoType, ammoRequired );
+		if ( clipSize && ammoRequired ) {
  			clipPredictTime = gameLocal.time;	// mp client: we predict this. mark time so we're not confused by snapshots
-			manaLeft -= 1;
+			ammoClip -= 1;
+			//manaLeft -= 1;
 		}
 
 		// wake up nearby monsters
@@ -2653,7 +2658,8 @@ void rvWeapon::Attack( bool altAttack, int num_attacks, float spread, float fuse
 
 	// Inform the gui of the ammo change
 	viewModel->PostGUIEvent ( "weapon_ammo" );
-	if ( manaLeft == 0 && manaAvailable() == 0 ) {
+	//if ( manaLeft == 0 && manaAvailable() == 0 ) {
+	if ( ammoClip == 0 && AmmoAvailable() == 0 ) {
 		viewModel->PostGUIEvent ( "weapon_noammo" );
 	}
 	

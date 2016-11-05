@@ -52,6 +52,19 @@ int riBuyingManager::GetIntValueForKey( const char* keyName, int defaultValue ) 
 }
 
 int riBuyingManager::GetOpponentKillCashAward( int playerLevel ) {
+	/*int targetFragCount = gameLocal.serverInfo.GetInt( "si_fragLimit" );
+	if ( opponentKillFragCount != targetFragCount ) {
+		opponentKillFragCount = targetFragCount;
+		if ( idStr::Icmp( gameLocal.serverInfo.GetString( "si_gameType" ), "DM" ) && idStr::Icmp( gameLocal.serverInfo.GetString( "si_gameType" ), "Team DM" ) ) {
+			// only do frag reward scaling in DM/TDM
+			opponentKillCashAward = GetIntValueForKey( "playerCashAward_killingOpponent", 600 );
+		} else {
+			targetFragCount = idMath::ClampInt( GetIntValueForKey( "killingOpponent_minFragAdjust", 10 ), GetIntValueForKey( "killingOpponent_maxFragAdjust",50 ), targetFragCount );
+			int baseVal = GetIntValueForKey( "playerCashAward_killingOpponent", 600 );
+			int fragTarget = GetIntValueForKey( "killingOpponent_bestFragCount", 25 );
+			opponentKillCashAward = ( baseVal * fragTarget ) / targetFragCount;
+		}
+	}*/
 	switch ( playerLevel )
 	{
 		case 1:
