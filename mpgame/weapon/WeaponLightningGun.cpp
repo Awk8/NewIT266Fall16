@@ -3,687 +3,214 @@
 
 #include "../Game_local.h"
 #include "../Weapon.h"
-#include "../client/ClientEffect.h"
-#include "../Projectile.h"
-#include "../ai/AI_Manager.h"
 
-const int	LIGHTNINGGUN_NUM_TUBES	=	3;
-const int	LIGHTNINGGUN_MAX_PATHS  =	3;
+#define BLASTER_SPARM_CHARGEGLOW		6
 
-const idEventDef EV_Lightninggun_RestoreHum( "<lightninggunRestoreHum>", "" );
-
-class rvLightningPath {
-public:
-	idEntityPtr<idEntity>	target;
-	idVec3					origin;
-	idVec3					normal;
-	rvClientEffectPtr		trailEffect;
-	rvClientEffectPtr		impactEffect;
-	
-	void					StopEffects		( void );
-	void					UpdateEffects	( const idVec3& from, const idDict& dict );
-	void					Save			( idSaveGame* savefile ) const;
-	void					Restore			( idRestoreGame* savefile );
-};
-
-class rvWeaponLightningGun : public rvWeapon {
+class rvWeaponInsaneBox : public rvWeapon {
 public:
 
-	CLASS_PROTOTYPE( rvWeaponLightningGun );
+	CLASS_PROTOTYPE( rvWeaponInsaneBox );
 
-	rvWeaponLightningGun( void );
-	~rvWeaponLightningGun( void );
+	rvWeaponInsaneBox ( void );
 
-	virtual void			Spawn		( void );
-	virtual void			Think		( void );
-
-	virtual void			ClientStale	( void );
-	virtual void			ClientUnstale( void );
-
-	void					PreSave		( void );
-	void					PostSave	( void );
-
-	void					Save		( idSaveGame* savefile ) const;
-	void					Restore		( idRestoreGame* savefile );
-
-	bool			NoFireWhileSwitching( void ) const { return true; }
+	virtual void		Spawn				( void );
+	void				Save				( idSaveGame *savefile ) const;
+	void				Restore				( idRestoreGame *savefile );
+	void				PreSave		( void );
+	void				PostSave	( void );
 
 protected:
 
-	void					UpdateTubes	( void );
-
-	// Tube effects
-	rvClientEntityPtr<rvClientEffect>	tubeEffects[LIGHTNINGGUN_NUM_TUBES];
-	idInterpolate<float>				tubeOffsets[LIGHTNINGGUN_NUM_TUBES];
-	jointHandle_t						tubeJoints[LIGHTNINGGUN_NUM_TUBES];
-	float								tubeMaxOffset;
-	float								tubeThreshold;
-	int									tubeTime;
-
-	rvClientEntityPtr<rvClientEffect>	trailEffectView;
-
-	int									nextCrawlTime;
-
-	float								range;
-	jointHandle_t						spireJointView;
-	jointHandle_t						chestJointView;
-	
-
-	rvLightningPath						currentPath;
-	
-	// Chain lightning mod
-	idList<rvLightningPath>				chainLightning;
-	idVec3								chainLightningRange;
+	bool				UpdateAttack		( void );
+	bool				UpdateFlashlight	( void );
+	void				Flashlight			( bool on );
 
 private:
 
-	void				Attack					( idEntity* ent, const idVec3& dir, float power = 1.0f );
-
-	void				UpdateChainLightning	( void );
-	void				StopChainLightning		( void );
-	void				UpdateEffects			( const idVec3& origin );
-	void				UpdateTrailEffect		( rvClientEffectPtr& effect, const idVec3& start, const idVec3& end, bool view = false );
+	int					chargeTime;
+	int					chargeDelay;
+	idVec2				chargeGlow;
+	bool				fireForced;
+	int					fireHeldTime;
 
 	stateResult_t		State_Raise				( const stateParms_t& parms );
 	stateResult_t		State_Lower				( const stateParms_t& parms );
 	stateResult_t		State_Idle				( const stateParms_t& parms );
+	stateResult_t		State_Charge			( const stateParms_t& parms );
+	stateResult_t		State_Charged			( const stateParms_t& parms );
 	stateResult_t		State_Fire				( const stateParms_t& parms );
-
-	void				Event_RestoreHum	( void );
-
-	CLASS_STATES_PROTOTYPE ( rvWeaponLightningGun );
+	stateResult_t		State_Flashlight		( const stateParms_t& parms );
+	
+	CLASS_STATES_PROTOTYPE ( rvWeaponInsaneBox );
 };
 
-CLASS_DECLARATION( rvWeapon, rvWeaponLightningGun )
-EVENT( EV_Lightninggun_RestoreHum,			rvWeaponLightningGun::Event_RestoreHum )
+CLASS_DECLARATION( rvWeapon, rvWeaponInsaneBox )
 END_CLASS
 
 /*
 ================
-rvWeaponLightningGun::rvWeaponLightningGun
+rvWeaponInsaneBox::rvWeaponInsaneBox
 ================
 */
-rvWeaponLightningGun::rvWeaponLightningGun( void ) {
+rvWeaponInsaneBox::rvWeaponInsaneBox ( void ) {
 }
 
 /*
 ================
-rvWeaponLightningGun::~rvWeaponLightningGun
+rvWeaponInsaneBox::UpdateFlashlight
 ================
 */
-rvWeaponLightningGun::~rvWeaponLightningGun( void ) {
-	int i;
-	
-	if ( trailEffectView ) {
-		trailEffectView->Stop( );
-	}	
-	currentPath.StopEffects( );
-	StopChainLightning( );
-	
-	for ( i = 0; i < LIGHTNINGGUN_NUM_TUBES; i ++ ) {	
-		if ( tubeEffects[i] ) {
-			tubeEffects[i]->Stop( );
-		}
+bool rvWeaponInsaneBox::UpdateFlashlight ( void ) {
+	if ( !wsfl.flashlight ) {
+		return false;
 	}
+	
+	SetState ( "Flashlight", 0 );
+	return true;		
 }
 
 /*
 ================
-rvWeaponLightningGun::Spawn
+rvWeaponInsaneBox::Flashlight
 ================
 */
-void rvWeaponLightningGun::Spawn( void ) {
-	int i;
+void rvWeaponInsaneBox::Flashlight ( bool on ) {
+	owner->Flashlight ( on );
 	
-	trailEffectView = NULL;
-	nextCrawlTime	= 0;
-
-	chainLightning.Clear( );
-	
-	// get hitscan range for our firing
-	range = weaponDef->dict.GetFloat( "range", "10000" );
-
-	// Initialize tubes
-	for ( i = 0; i < LIGHTNINGGUN_NUM_TUBES; i ++ ) {
-		tubeJoints[i] = viewModel->GetAnimator()->GetJointHandle ( spawnArgs.GetString ( va("joint_tube_%d",i), "" ) );
-		tubeOffsets[i].Init ( gameLocal.time, 0, 0, 0 );
-	}
-	
-	// Cache the max ammo for the weapon and the max tube offset
-	tubeMaxOffset = spawnArgs.GetFloat ( "tubeoffset" );
-	tubeThreshold = owner->inventory.MaxAmmoForAmmoClass ( owner, GetAmmoNameForIndex ( ammoType ) ) / (float)LIGHTNINGGUN_NUM_TUBES;
-	tubeTime	  = SEC2MS ( spawnArgs.GetFloat ( "tubeTime", ".25" ) );
-		
-	spireJointView = viewModel->GetAnimator ( )->GetJointHandle ( "spire_1" );	
-
-	if( gameLocal.GetLocalPlayer())	{
-		chestJointView = gameLocal.GetLocalPlayer()->GetAnimator()->GetJointHandle( spawnArgs.GetString ( "joint_hideGun_flash" ) );
+	if ( on ) {
+		worldModel->ShowSurface ( "models/weapons/blaster/flare" );
+		viewModel->ShowSurface ( "models/weapons/blaster/flare" );
 	} else {
-		chestJointView = spireJointView;
+		worldModel->HideSurface ( "models/weapons/blaster/flare" );
+		viewModel->HideSurface ( "models/weapons/blaster/flare" );
 	}
-
-	chainLightningRange = spawnArgs.GetVec2( "chainLightningRange", "150 300" );
-	
-	SetState ( "Raise", 0 );
 }
 
 /*
 ================
-rvWeaponLightningGun::Save
+rvWeaponInsaneBox::UpdateAttack
 ================
 */
-void rvWeaponLightningGun::Save	( idSaveGame* savefile ) const {
-	int i;
-
-	// Lightning Tubes
-	for ( i = 0; i < LIGHTNINGGUN_NUM_TUBES; i ++ ) {
-		tubeEffects[i].Save ( savefile );
-		savefile->WriteInterpolate ( tubeOffsets[i] );
-		savefile->WriteJoint ( tubeJoints[i] );
-	}
-	savefile->WriteFloat ( tubeMaxOffset );
-	savefile->WriteFloat ( tubeThreshold );
-	savefile->WriteInt ( tubeTime );
-
-	// General
-	trailEffectView.Save ( savefile );
-	savefile->WriteInt ( nextCrawlTime );
-	savefile->WriteFloat ( range );
-	savefile->WriteJoint ( spireJointView );
-	savefile->WriteJoint ( chestJointView );
-
-	currentPath.Save ( savefile );
-	
-	// Chain Lightning mod
-	savefile->WriteInt ( chainLightning.Num() );
-	for ( i = 0; i < chainLightning.Num(); i ++ ) {
-		chainLightning[i].Save ( savefile );
-	}
-	savefile->WriteVec3 ( chainLightningRange );
-}
-
-/*
-================
-rvWeaponLightningGun::Restore
-================
-*/
-void rvWeaponLightningGun::Restore ( idRestoreGame* savefile ) {
-	int   i;
-	int   num;
-	float f;
-	
-	// Lightning Tubes
-	for ( i = 0; i < LIGHTNINGGUN_NUM_TUBES; i ++ ) {
-		tubeEffects[i].Restore ( savefile );
-		savefile->ReadFloat ( f );
-		tubeOffsets[i].SetStartTime ( f );
-		savefile->ReadFloat ( f );
-		tubeOffsets[i].SetDuration ( f );
-		savefile->ReadFloat ( f );
-		tubeOffsets[i].SetStartValue ( f );
-		savefile->ReadFloat ( f );
-		tubeOffsets[i].SetEndValue ( f );
-		savefile->ReadJoint ( tubeJoints[i] );
-	}
-	savefile->ReadFloat ( tubeMaxOffset );
-	savefile->ReadFloat ( tubeThreshold );
-	savefile->ReadInt ( tubeTime );
-	
-	// General
-	trailEffectView.Restore ( savefile );
-
-	savefile->ReadInt ( nextCrawlTime );
-	savefile->ReadFloat ( range );
-	savefile->ReadJoint ( spireJointView );
-	savefile->ReadJoint ( chestJointView );
-
-	currentPath.Restore ( savefile );
-	
-	// Chain lightning mod
-	savefile->ReadInt ( num );
-	chainLightning.SetNum ( num );
-	for ( i = 0; i < num; i ++ ) {
-		chainLightning[i].Restore ( savefile );
-	}
-	savefile->ReadVec3 ( chainLightningRange );
-
-
-}
-
-/*
-================
-rvWeaponLightningGun::Think
-================
-*/
-void rvWeaponLightningGun::Think ( void ) {
-	trace_t	  tr;
-
-	rvWeapon::Think();
-
-	UpdateTubes();
-
-	// If no longer firing or out of ammo then nothing to do in the think
-	if ( !wsfl.attack || !IsReady() || !AmmoAvailable() ) {
-		if ( trailEffectView ) {
-			trailEffectView->Stop ( );
-			trailEffectView = NULL;
+bool rvWeaponInsaneBox::UpdateAttack ( void ) {
+	// Clear fire forced
+	if ( fireForced ) {
+		if ( !wsfl.attack ) {
+			fireForced = false;
+		} else {
+			return false;
 		}
-	
-		currentPath.StopEffects();
-		StopChainLightning();
-		return;
 	}
 
-	// Cast a ray out to the lock range
-// RAVEN BEGIN
-// ddynerman: multiple clip worlds
-// jshepard: allow projectile hits
-	gameLocal.TracePoint(	owner, tr, 
-							playerViewOrigin, 
-							playerViewOrigin + playerViewAxis[0] * range, 
-							(MASK_SHOT_RENDERMODEL|CONTENTS_WATER|CONTENTS_PROJECTILE), owner );
-// RAVEN END
-	// Calculate the direction of the lightning effect using the barrel joint of the weapon
-	// and the end point of the trace
-	idVec3 origin;
-	idMat3 axis;
-	
-	//fire from chest if show gun models is off.
-	if( !cvarSystem->GetCVarBool("ui_showGun"))	{
-		GetGlobalJointTransform( true, chestJointView, origin, axis );
-	} else {
-		GetGlobalJointTransform( true, barrelJointView, origin, axis );
-	}
-
-	// Cache the target we are hitting
-	currentPath.origin = tr.endpos;
-	currentPath.normal = tr.c.normal;
-	currentPath.target = gameLocal.entities[tr.c.entityNum];
-
-	UpdateChainLightning();
-	
-	UpdateEffects( origin );
-	
-	MuzzleFlash();
-
-	// Inflict damage on all targets being attacked
-	if ( !gameLocal.isClient && gameLocal.time >= nextAttackTime ) {
-		int    i;
-		float  power = 1.0f;
-		idVec3 dir;
-		
-		owner->inventory.UseAmmo( ammoType, ammoRequired );
-		
-		dir = tr.endpos - origin;
-		dir.Normalize ( );
-		
-		nextAttackTime = gameLocal.time + (fireRate * owner->PowerUpModifier ( PMOD_FIRERATE ));
-		Attack ( currentPath.target, dir, power );
-		for ( i = 0; i < chainLightning.Num(); i ++, power *= 0.75f ) {
-			Attack ( chainLightning[i].target, chainLightning[i].normal, power );
-		}
-
-		statManager->WeaponFired( owner, owner->GetCurrentWeapon(), chainLightning.Num() + 1 );
-	}
-
-	// Play the lightning crawl effect every so often when doing damage
-	if ( gameLocal.time > nextCrawlTime ) {
-		nextCrawlTime = gameLocal.time + SEC2MS(spawnArgs.GetFloat ( "crawlDelay", ".3" ));
-	}
-}
-
-/*
-================
-rvWeaponLightningGun::Attack
-================
-*/
-void rvWeaponLightningGun::Attack ( idEntity* ent, const idVec3& dir, float power ) {
-	// Double check
-	if ( !ent || !ent->fl.takedamage ) {
-		return;
-	}
-
-	// Start a lightning crawl effect every so often
-	// we don't synchronize it, so let's not show it in multiplayer for a listen host. also fixes seeing it on the host from other instances
-	if ( !gameLocal.isMultiplayer && gameLocal.time > nextCrawlTime ) {
-		if ( ent->IsType( idActor::GetClassType() ) ) {
-			rvClientCrawlEffect* effect;
-			effect = new rvClientCrawlEffect( gameLocal.GetEffect( weaponDef->dict, "fx_crawl" ), ent, SEC2MS( spawnArgs.GetFloat ( "crawlTime", ".2" ) ) );
-			effect->Play( gameLocal.time, false );
-		}
-	}	
-
-// RAVEN BEGIN
-// mekberg: stats
-	if( owner->IsType( idPlayer::GetClassType() ) && ent->IsType( idActor::GetClassType() ) && ent != owner && !((idPlayer*)owner)->pfl.dead ) {
-		statManager->WeaponHit( (idActor*)owner, ent, owner->GetCurrentWeapon() );
-	}
-// RAVEN END
-	ent->Damage( owner, owner, dir, spawnArgs.GetString ( "def_damage" ), power * owner->PowerUpModifier( PMOD_PROJECTILE_DAMAGE ), 0 );
-}
-
-/*
-================
-rvWeaponLightningGun::UpdateChainLightning
-================
-*/
-void rvWeaponLightningGun::UpdateChainLightning ( void ) {
-	int					i;
-	rvLightningPath*	parent;
-	rvLightningPath*	path;
-	idActor*			target;
-
-	// Chain lightning not enabled
-	if ( !chainLightningRange[0] ) {
-		return;
-	}
-
-	// Need to have a primary target that is not on the same team for chain lightning to work
-	path   = &currentPath;
-	target = dynamic_cast<idActor*>(path->target.GetEntity());
-	if ( !target || !target->health || target->team == owner->team ) {
-		StopChainLightning ( );
-		return;
-	}
-	
-	currentPath.target->fl.takedamage = false;
-	
-	// Look through the chain lightning list and remove any paths that are no longer valid due
-	// to their range or visibility
-	for ( i = 0; i < chainLightning.Num(); i ++ ) {
-		parent = path;
-		path   = &chainLightning[i];
-		target = dynamic_cast<idActor*>(path->target.GetEntity());
-		
-		// If the entity isnt valid anymore or is dead then remove it from the list
-		if ( !target || target->health <= 0 || !target->fl.takedamage ) {
-			path->StopEffects ( );
-			chainLightning.RemoveIndex ( i-- );
-			continue;
-		}
-
-		// Choose a destination origin the chain lightning path target	
-		path->origin = (target->GetPhysics()->GetAbsBounds().GetCenter() + target->GetEyePosition()) * 0.5f;
-		path->origin += target->GetPhysics()->GetGravityNormal() * (gameLocal.random.RandomFloat() * 20.0f - 10.0f);
-		path->normal = path->origin - parent->origin;
-		path->normal.Normalize();
-		
-		// Make sure the entity is still within range of its parent
-		if ( (path->origin - parent->origin).LengthSqr ( ) > Square ( chainLightningRange[1] ) ) {
-			path->StopEffects ( );
-			chainLightning.RemoveIndex ( i-- );
-			continue;
+	// If the player is pressing the fire button and they have enough ammo for a shot
+	// then start the shooting process.
+	if (manaAvailable())
+	//if (AmmoAvailable())
+	{
+		if ( wsfl.attack && gameLocal.time >= nextAttackTime ) {
+			// Save the time which the fire button was pressed
+			if ( fireHeldTime == 0 ) {		
+				nextAttackTime = gameLocal.time + (fireRate * owner->PowerUpModifier ( PMOD_FIRERATE ));
+				fireHeldTime   = gameLocal.time;
+				viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, chargeGlow[0] );
+			}
 		}		
-						
-		// Trace to make sure we can still hit them
-		trace_t tr;
-// RAVEN BEGIN
-// ddynerman: multiple clip worlds
-		gameLocal.TracePoint ( owner, tr, parent->origin, path->origin, MASK_SHOT_RENDERMODEL, parent->target );
-// RAVEN END
-		if ( tr.c.entityNum != target->entityNumber ) {
-			path->StopEffects ( );
-			chainLightning.RemoveIndex ( i-- );
-			continue;
+	}
+
+	// If they have the charge mod and they have overcome the initial charge 
+	// delay then transition to the charge state.
+	if ( fireHeldTime != 0 ) {
+		if ( gameLocal.time - fireHeldTime > chargeDelay ) {
+			SetState ( "Charge", 4 );
+			return true;
 		}
-		
-		path->origin = tr.endpos;
-		
-		// Temporarily disable taking damage to flag this entity is used
-		target->fl.takedamage = false;
-	}
-	
-	// Start path at the end of the current path
-	if ( chainLightning.Num () ) {
-		path = &chainLightning[chainLightning.Num()-1];
-	} else {
-		path = &currentPath;
-	}
-	
-	// Cap the number of chain lightning jumps
-	while ( chainLightning.Num ( ) + 1 < LIGHTNINGGUN_MAX_PATHS ) {	
-		for ( target = aiManager.GetEnemyTeam ( (aiTeam_t)owner->team ); target; target = target->teamNode.Next() ) {
-			// Must be a valid entity that takes damage to chain lightning too
-			if ( !target || target->health <= 0 || !target->fl.takedamage ) {
-				continue;
-			}
-			// Must be within starting chain path range
-			if ( (target->GetPhysics()->GetOrigin() - path->target->GetPhysics()->GetOrigin()).LengthSqr() > Square ( chainLightningRange[0] ) ) {
-				continue;
-			}
+
+		// If the fire button was let go but was pressed at one point then 
+		// release the shot.
+		if ( !wsfl.attack ) {
+			idPlayer * player = gameLocal.GetLocalPlayer();
+			if( player )	{
 			
-			// Make sure we can trace to the target from the current path
-			trace_t	tr;
-			idVec3	origin;
-			origin = (target->GetPhysics()->GetAbsBounds().GetCenter() + target->GetEyePosition()) * 0.5f;
-			origin += target->GetPhysics()->GetGravityNormal() * (gameLocal.random.RandomFloat() * 20.0f - 10.0f);
-// RAVEN BEGIN
-// ddynerman: multiple clip worlds
-			gameLocal.TracePoint ( owner, tr, path->origin, origin, MASK_SHOT_RENDERMODEL, path->target );
-// RAVEN END
-			if ( tr.c.entityNum != target->entityNumber ) {
-				continue;
+				if( player->GuiActive())	{
+					//make sure the player isn't looking at a gui first
+					SetState ( "Lower", 0 );
+				} else {
+					SetState ( "Fire", 0 );
+				}
 			}
-			
-			path = &chainLightning.Alloc ( );
-			path->target = target;
-			path->normal = tr.endpos - path->origin;
-			path->normal.Normalize();
-			path->origin = tr.endpos;
-			
-			// Flag this entity to ensure it is skipped
-			target->fl.takedamage = false;
-			break;
+			return true;
 		}
-		// Found nothing? just break out early
-		if ( !target ) {
-			break;
-		}
-	}	
-	
-	// Reset the take damage flag 
-	currentPath.target->fl.takedamage = true;
-	for ( i = chainLightning.Num() - 1; i >= 0; i -- ) {
-		chainLightning[i].target->fl.takedamage = true;
 	}
+	
+	return false;
 }
 
 /*
 ================
-rvWeaponLightningGun::UpdateEffects
+rvWeaponInsaneBox::Spawn
 ================
 */
-void rvWeaponLightningGun::UpdateEffects( const idVec3& origin ) {
-	int					i;
-	rvLightningPath*	parent;
-	idVec3				dir;
+void rvWeaponInsaneBox::Spawn ( void ) {
+	viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, 0 );
+	SetState ( "Raise", 0 );
 	
-	// Main path (world effects)
-	currentPath.UpdateEffects ( origin, weaponDef->dict );
-	if ( currentPath.trailEffect ) {
-		currentPath.trailEffect->GetRenderEffect()->suppressSurfaceInViewID = owner->entityNumber + 1;
-	}
+	chargeGlow   = spawnArgs.GetVec2 ( "chargeGlow" );
+	chargeTime   = SEC2MS ( spawnArgs.GetFloat ( "chargeTime" ) );
+	chargeDelay  = SEC2MS ( spawnArgs.GetFloat ( "chargeDelay" ) );
 
-	// In view trail effect
-	dir = currentPath.origin - origin;
-	dir.Normalize();
-	if ( !trailEffectView ) {
-		trailEffectView = gameLocal.PlayEffect ( gameLocal.GetEffect ( weaponDef->dict, "fx_trail" ), origin, dir.ToMat3(), true, currentPath.origin );		
-	} else {
-		trailEffectView->SetOrigin( origin );
-		trailEffectView->SetAxis( dir.ToMat3() );
-		trailEffectView->SetEndOrigin( currentPath.origin );
-	}	
-	if ( trailEffectView ) {
-		trailEffectView->GetRenderEffect()->allowSurfaceInViewID = owner->entityNumber + 1;;
-	}
-
-	if ( !currentPath.target ) {
-		return;
-	}
-	
-	// Chain lightning effects
-	parent = &currentPath;
-	for ( i = 0; i < chainLightning.Num(); i ++ ) {
-		chainLightning[i].UpdateEffects( parent->origin, weaponDef->dict );
-		parent = &chainLightning[i];
-	}
+	fireHeldTime		= 0;
+	fireForced			= false;
+			
+	Flashlight ( owner->IsFlashlightOn() );
 }
 
 /*
 ================
-rvWeaponLightningGun::UpdateTrailEffect
+rvWeaponInsaneBox::Save
 ================
 */
-void rvWeaponLightningGun::UpdateTrailEffect( rvClientEffectPtr& effect, const idVec3& start, const idVec3& end, bool view ) {
-	idVec3 dir;
-	dir = end - start;
-	dir.Normalize();
-	
-	if ( !effect ) {
-		effect = gameLocal.PlayEffect( gameLocal.GetEffect( weaponDef->dict, view ? "fx_trail" : "fx_trail_world" ), start, dir.ToMat3(), true, end );		
-	} else {
-		effect->SetOrigin( start );
-		effect->SetAxis( dir.ToMat3() );
-		effect->SetEndOrigin( end );
-	}
+void rvWeaponInsaneBox::Save ( idSaveGame *savefile ) const {
+	savefile->WriteInt ( chargeTime );
+	savefile->WriteInt ( chargeDelay );
+	savefile->WriteVec2 ( chargeGlow );
+	savefile->WriteBool ( fireForced );
+	savefile->WriteInt ( fireHeldTime );
 }
 
 /*
 ================
-rvWeaponLightningGun::StopChainLightning
+rvWeaponInsaneBox::Restore
 ================
 */
-void rvWeaponLightningGun::StopChainLightning( void ) {
-	int	i;
-	
-	if ( !chainLightning.Num( ) ) {
-		return;
-	}
-	
-	for ( i = 0; i < chainLightning.Num(); i ++ ) {
-		chainLightning[i].StopEffects( );
-	}		
-	
-	chainLightning.Clear( );
+void rvWeaponInsaneBox::Restore ( idRestoreGame *savefile ) {
+	savefile->ReadInt ( chargeTime );
+	savefile->ReadInt ( chargeDelay );
+	savefile->ReadVec2 ( chargeGlow );
+	savefile->ReadBool ( fireForced );
+	savefile->ReadInt ( fireHeldTime );
 }
 
 /*
 ================
-rvWeaponLightningGun::ClientStale
+rvWeaponInsaneBox::PreSave
 ================
 */
-void rvWeaponLightningGun::ClientStale( void ) {
-	rvWeapon::ClientStale( );
-
-	if ( trailEffectView ) {
-		trailEffectView->Stop();
-		trailEffectView->Event_Remove();
-		trailEffectView = NULL;
-	}
-	
-	currentPath.StopEffects( );
-}
-
-/*
-================
-rvWeaponLightningGun::PreSave
-================
-*/
-void rvWeaponLightningGun::PreSave( void ) {
+void rvWeaponInsaneBox::PreSave ( void ) {
 
 	SetState ( "Idle", 4 );
 
 	StopSound( SND_CHANNEL_WEAPON, 0);
 	StopSound( SND_CHANNEL_BODY, 0);
-	StopSound( SND_CHANNEL_BODY2, 0);
-	StopSound( SND_CHANNEL_BODY3, 0);
 	StopSound( SND_CHANNEL_ITEM, 0);
 	StopSound( SND_CHANNEL_ANY, false );
 	
-	viewModel->StopSound( SND_CHANNEL_ANY, false );
-	viewModel->StopSound( SND_CHANNEL_BODY, 0);
-
-	worldModel->StopSound( SND_CHANNEL_ANY, false );
-	worldModel->StopSound( SND_CHANNEL_BODY, 0);
-
-	
-	if ( trailEffectView ) {
-		trailEffectView->Stop();
-		trailEffectView->Event_Remove();
-		trailEffectView = NULL;
-	}
-	for ( int i = 0; i < LIGHTNINGGUN_NUM_TUBES; i ++ ) {
-		if ( tubeEffects[i] ) {
-			tubeEffects[i]->Event_Remove();
-		}
-	}	
-	currentPath.StopEffects( );
-
 }
 
 /*
 ================
-rvWeaponLightningGun::PostSave
+rvWeaponInsaneBox::PostSave
 ================
 */
-void rvWeaponLightningGun::PostSave( void ) {
-	//restore the humming
-	PostEventMS( &EV_Lightninggun_RestoreHum, 10 );
-}
-
-/*
-================
-rvWeaponLightningGun::UpdateTubes
-================
-*/
-void rvWeaponLightningGun::UpdateTubes( void ) {
-	idAnimator* animator;
-	animator = viewModel->GetAnimator ( );
-	assert ( animator );
-
-	int i;
-	float ammo;
-	
-	ammo = AmmoAvailable ( );
-	for ( i = 0; i < LIGHTNINGGUN_NUM_TUBES; i ++ ) {
-		float offset;
-		if ( ammo > tubeThreshold * i ) {
-			offset = tubeMaxOffset;
-			
-			if ( !tubeEffects[i] ) {
-				tubeEffects[i] = viewModel->PlayEffect ( gameLocal.GetEffect( spawnArgs, "fx_tube" ), tubeJoints[i], vec3_origin, mat3_identity, true );
-				if( tubeEffects[i] ) {
-					viewModel->StartSound ( "snd_tube", SND_CHANNEL_ANY, 0, false, NULL );
-				}
-			}
-		} else {
-			offset = 0;
-			
-			if ( tubeEffects[i] ) {
-				tubeEffects[i]->Stop ( );
-				tubeEffects[i] = NULL;
-				viewModel->StartSound ( "snd_tube", SND_CHANNEL_ANY, 0, false, NULL );
-			}
-		}
-
-		// Attenuate the tube effect to how much ammo is left in the tube
-		if ( tubeEffects[i] ) {
-			tubeEffects[i]->Attenuate ( (ammo - tubeThreshold * (float)i) / tubeThreshold );
-		}
-
-		if ( offset > tubeOffsets[i].GetEndValue ( ) ) {
-			float current;
-			current  = tubeOffsets[i].GetCurrentValue(gameLocal.time);
-			tubeOffsets[i].Init ( gameLocal.time, (1.0f - (current/tubeMaxOffset)) * (float)tubeTime, current, offset );
-		} else if ( offset < tubeOffsets[i].GetEndValue ( ) ) {
-			float current;
-			current  = tubeOffsets[i].GetCurrentValue(gameLocal.time);
-			tubeOffsets[i].Init ( gameLocal.time, (current/tubeMaxOffset) * (float)tubeTime, current, offset );
-		}			
-
-		animator->SetJointPos ( tubeJoints[i], JOINTMOD_LOCAL, idVec3(tubeOffsets[i].GetCurrentValue(gameLocal.time),0,0) );
-	}		
+void rvWeaponInsaneBox::PostSave ( void ) {
 }
 
 /*
@@ -694,75 +221,73 @@ void rvWeaponLightningGun::UpdateTubes( void ) {
 ===============================================================================
 */
 
-CLASS_STATES_DECLARATION ( rvWeaponLightningGun )
-	STATE ( "Raise",						rvWeaponLightningGun::State_Raise )
-	STATE ( "Lower",						rvWeaponLightningGun::State_Lower )
-	STATE ( "Idle",							rvWeaponLightningGun::State_Idle)
-	STATE ( "Fire",							rvWeaponLightningGun::State_Fire )
+CLASS_STATES_DECLARATION ( rvWeaponInsaneBox )
+	STATE ( "Raise",						rvWeaponInsaneBox::State_Raise )
+	STATE ( "Lower",						rvWeaponInsaneBox::State_Lower )
+	STATE ( "Idle",							rvWeaponInsaneBox::State_Idle)
+	STATE ( "Charge",						rvWeaponInsaneBox::State_Charge )
+	STATE ( "Charged",						rvWeaponInsaneBox::State_Charged )
+	STATE ( "Fire",							rvWeaponInsaneBox::State_Fire )
+	STATE ( "Flashlight",					rvWeaponInsaneBox::State_Flashlight )
 END_CLASS_STATES
 
 /*
 ================
-rvWeaponLightningGun::State_Raise
+rvWeaponInsaneBox::State_Raise
 ================
 */
-stateResult_t rvWeaponLightningGun::State_Raise( const stateParms_t& parms ) {
+stateResult_t rvWeaponInsaneBox::State_Raise( const stateParms_t& parms ) {
 	enum {
-		STAGE_INIT,
-		STAGE_WAIT,
+		RAISE_INIT,
+		RAISE_WAIT,
 	};	
 	switch ( parms.stage ) {
-		// Start the weapon raising
-		case STAGE_INIT:
-			SetStatus( WP_RISING );
-			viewModel->SetShaderParm( 6, 1 );
+		case RAISE_INIT:			
+			SetStatus ( WP_RISING );
 			PlayAnim( ANIMCHANNEL_ALL, "raise", parms.blendFrames );
-			return SRESULT_STAGE( STAGE_WAIT );
-		
-		// Wait for the weapon to finish raising and allow it to be cancelled by
-		// lowering the weapon 
-		case STAGE_WAIT:
-			if ( AnimDone( ANIMCHANNEL_ALL, 4 ) ) {
-				SetState( "Idle", 4 );
+			return SRESULT_STAGE(RAISE_WAIT);
+			
+		case RAISE_WAIT:
+			if ( AnimDone ( ANIMCHANNEL_ALL, 4 ) ) {
+				SetState ( "Idle", 4 );
 				return SRESULT_DONE;
 			}
 			if ( wsfl.lowerWeapon ) {
-				StopSound( SND_CHANNEL_BODY3, false );
-				SetState( "Lower", 4 );
+				SetState ( "Lower", 4 );
 				return SRESULT_DONE;
 			}
 			return SRESULT_WAIT;
 	}
-	return SRESULT_ERROR;
+	return SRESULT_ERROR;	
 }
 
 /*
 ================
-rvWeaponLightningGun::State_Lower
+rvWeaponInsaneBox::State_Lower
 ================
 */
-stateResult_t rvWeaponLightningGun::State_Lower( const stateParms_t& parms ) {
+stateResult_t rvWeaponInsaneBox::State_Lower ( const stateParms_t& parms ) {
 	enum {
-		STAGE_INIT,
-		STAGE_WAIT,
-		STAGE_WAITRAISE
+		LOWER_INIT,
+		LOWER_WAIT,
+		LOWER_WAITRAISE
 	};	
 	switch ( parms.stage ) {
-		case STAGE_INIT:
-			SetStatus( WP_LOWERING );
+		case LOWER_INIT:
+			SetStatus ( WP_LOWERING );
 			PlayAnim( ANIMCHANNEL_ALL, "putaway", parms.blendFrames );
-			return SRESULT_STAGE(STAGE_WAIT);
-		
-		case STAGE_WAIT:
-			if ( AnimDone( ANIMCHANNEL_ALL, 0 ) ) {
-				SetStatus( WP_HOLSTERED );
-				return SRESULT_STAGE(STAGE_WAITRAISE);
+			return SRESULT_STAGE(LOWER_WAIT);
+			
+		case LOWER_WAIT:
+			if ( AnimDone ( ANIMCHANNEL_ALL, 0 ) ) {
+				SetStatus ( WP_HOLSTERED );
+				return SRESULT_STAGE(LOWER_WAITRAISE);
 			}
 			return SRESULT_WAIT;
-		
-		case STAGE_WAITRAISE:
+	
+		case LOWER_WAITRAISE:
 			if ( wsfl.raiseWeapon ) {
-				SetState( "Raise", 0 );
+				SetState ( "Raise", 0 );
 				return SRESULT_DONE;
 			}
 			return SRESULT_WAIT;
@@ -772,31 +297,30 @@ stateResult_t rvWeaponLightningGun::State_Lower( const stateParms_t& parms ) {
 
 /*
 ================
-rvWeaponLightningGun::State_Idle
+rvWeaponInsaneBox::State_Idle
 ================
 */
-stateResult_t rvWeaponLightningGun::State_Idle( const stateParms_t& parms ) {
+stateResult_t rvWeaponInsaneBox::State_Idle ( const stateParms_t& parms ) {	
 	enum {
-		STAGE_INIT,
-		STAGE_WAIT,
+		IDLE_INIT,
+		IDLE_WAIT,
 	};	
 	switch ( parms.stage ) {
-		case STAGE_INIT:
-			SetStatus( WP_READY );
+		case IDLE_INIT:			
+			SetStatus ( WP_READY );
 			PlayCycle( ANIMCHANNEL_ALL, "idle", parms.blendFrames );
-			StopSound( SND_CHANNEL_BODY3, false );
-			StartSound( "snd_idle_hum", SND_CHANNEL_BODY3, 0, false, NULL );
-
-			return SRESULT_STAGE( STAGE_WAIT );
-		
-		case STAGE_WAIT:
+			return SRESULT_STAGE ( IDLE_WAIT );
+			
+		case IDLE_WAIT:
 			if ( wsfl.lowerWeapon ) {
-				StopSound( SND_CHANNEL_BODY3, false );
-				SetState( "Lower", 4 );
+				SetState ( "Lower", 4 );
 				return SRESULT_DONE;
 			}
-			if ( wsfl.attack && gameLocal.time > nextAttackTime && AmmoAvailable ( ) ) {
-				SetState( "Fire", 4 );
+			
+			if ( UpdateFlashlight ( ) ) { 
+				return SRESULT_DONE;
+			}
+			if ( UpdateAttack ( ) ) {
 				return SRESULT_DONE;
 			}
 			return SRESULT_WAIT;
@@ -806,67 +330,65 @@ stateResult_t rvWeaponLightningGun::State_Idle( const stateParms_t& parms ) {
 
 /*
 ================
-rvWeaponLightningGun::State_Fire
+rvWeaponInsaneBox::State_Charge
 ================
 */
-stateResult_t rvWeaponLightningGun::State_Fire( const stateParms_t& parms ) {
+stateResult_t rvWeaponInsaneBox::State_Charge ( const stateParms_t& parms ) {
 	enum {
-		STAGE_INIT,
-		STAGE_ATTACKLOOP,
-		STAGE_DONE,
-		STAGE_DONEWAIT
+		CHARGE_INIT,
+		CHARGE_WAIT,
 	};	
 	switch ( parms.stage ) {
-		case STAGE_INIT:
-			StartSound( "snd_fire", SND_CHANNEL_WEAPON, 0, false, NULL );
-			StartSound( "snd_fire_stereo", SND_CHANNEL_ITEM, 0, false, NULL );
-			StartSound( "snd_fire_loop", SND_CHANNEL_BODY2, 0, false, NULL );
+		case CHARGE_INIT:
+			viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, chargeGlow[0] );
+			StartSound ( "snd_charge", SND_CHANNEL_ITEM, 0, false, NULL );
+			PlayCycle( ANIMCHANNEL_ALL, "charging", parms.blendFrames );
+			return SRESULT_STAGE ( CHARGE_WAIT );
 			
-			viewModel->SetShaderParm( 6, 0 );
-
-			viewModel->PlayEffect( "fx_spire", spireJointView, true );
-			viewModel->PlayEffect( "fx_flash", barrelJointView, true );
-
-			if ( worldModel && flashJointWorld != INVALID_JOINT ) {
-  				worldModel->PlayEffect( gameLocal.GetEffect( weaponDef->dict,"fx_flash_world"), flashJointWorld, vec3_origin, mat3_identity, true );
-  			}
-
-			PlayAnim( ANIMCHANNEL_ALL, "shoot_start", parms.blendFrames );
-			return SRESULT_STAGE( STAGE_ATTACKLOOP );
-		
-		case STAGE_ATTACKLOOP:
-			if ( !wsfl.attack || wsfl.lowerWeapon || !AmmoAvailable ( ) ) {
-				return SRESULT_STAGE ( STAGE_DONE );
-			}
-			if ( AnimDone( ANIMCHANNEL_ALL, 0 ) ) {
-				PlayCycle( ANIMCHANNEL_ALL, "shoot_loop", 0 );
-				if ( !gameLocal.isMultiplayer
-					&& owner == gameLocal.GetLocalPlayer() ) {
-					owner->playerView.SetShakeParms( MS2SEC(gameLocal.GetTime() + 500), 2.0f );
+		case CHARGE_WAIT:	
+			if ( gameLocal.time - fireHeldTime < chargeTime ) {
+				float f;
+				f = (float)(gameLocal.time - fireHeldTime) / (float)chargeTime;
+				f = chargeGlow[0] + f * (chargeGlow[1] - chargeGlow[0]);
+				f = idMath::ClampFloat ( chargeGlow[0], chargeGlow[1], f );
+				viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, f );
+				
+				if ( !wsfl.attack ) {
+					SetState ( "Fire", 0 );
+					return SRESULT_DONE;
 				}
-			}
-			return SRESULT_WAIT;
-						
-		case STAGE_DONE:
-			StopSound( SND_CHANNEL_BODY2, false );
+				
+				return SRESULT_WAIT;
+			} 
+			SetState ( "Charged", 4 );
+			return SRESULT_DONE;
+	}
+	return SRESULT_ERROR;	
+}
 
-			viewModel->StopEffect( "fx_spire" );
-			viewModel->StopEffect( "fx_flash" );
- 			if ( worldModel ) {
-  				worldModel->StopEffect( gameLocal.GetEffect( weaponDef->dict, "fx_flash_world" ) );
-  			}
-			viewModel->SetShaderParm( 6, 1 );
+/*
+================
+rvWeaponInsaneBox::State_Charged
+================
+*/
+stateResult_t rvWeaponInsaneBox::State_Charged ( const stateParms_t& parms ) {
+	enum {
+		CHARGED_INIT,
+		CHARGED_WAIT,
+	};	
+	switch ( parms.stage ) {
+		case CHARGED_INIT:		
+			viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, 1.0f  );
 
-			PlayAnim( ANIMCHANNEL_ALL, "shoot_end", 0 );
-			return SRESULT_STAGE( STAGE_DONEWAIT );
+			StopSound ( SND_CHANNEL_ITEM, false );
+			StartSound ( "snd_charge_loop", SND_CHANNEL_ITEM, 0, false, NULL );
+			StartSound ( "snd_charge_click", SND_CHANNEL_BODY, 0, false, NULL );
+			return SRESULT_STAGE(CHARGED_WAIT);
 			
-		case STAGE_DONEWAIT:
-			if ( AnimDone( ANIMCHANNEL_ALL, 4 ) ) {
-				SetState( "Idle", 4 );
-				return SRESULT_DONE;
-			}
-			if ( !wsfl.lowerWeapon && wsfl.attack && AmmoAvailable ( ) ) {
-				SetState( "Fire", 4 );
+		case CHARGED_WAIT:
+			if ( !wsfl.attack ) {
+				fireForced = true;
+				SetState ( "Fire", 0 );
 				return SRESULT_DONE;
 			}
 			return SRESULT_WAIT;
@@ -874,110 +396,97 @@ stateResult_t rvWeaponLightningGun::State_Fire( const stateParms_t& parms ) {
 	return SRESULT_ERROR;
 }
 
-
 /*
 ================
-rvWeaponLightningGun::Event_RestoreHum
+rvWeaponInsaneBox::State_Fire
 ================
 */
-void rvWeaponLightningGun::Event_RestoreHum ( void ) {
-	StopSound( SND_CHANNEL_BODY3, false );
-	StartSound( "snd_idle_hum", SND_CHANNEL_BODY3, 0, false, NULL );
-}
+stateResult_t rvWeaponInsaneBox::State_Fire ( const stateParms_t& parms ) {
+	enum {
+		FIRE_INIT,
+		FIRE_WAIT,
+	};	
+	switch ( parms.stage ) {
+		case FIRE_INIT:	
 
-/*
-================
-rvWeaponLightningGun::ClientUnStale
-================
-*/
-void rvWeaponLightningGun::ClientUnstale( void ) {
-	Event_RestoreHum();
-}
+			StopSound ( SND_CHANNEL_ITEM, false );
+			viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, 0 );
+			//don't fire if we're targeting a gui.
+			idPlayer* player;
+			player = gameLocal.GetLocalPlayer();
 
-/*
-===============================================================================
+			//make sure the player isn't looking at a gui first
+			if( player && player->GuiActive() )	{
+				fireHeldTime = 0;
+				SetState ( "Lower", 0 );
+				return SRESULT_DONE;
+			}
 
-	rvLightningPath
+			if( player && !player->CanFire() )	{
+				fireHeldTime = 0;
+				SetState ( "Idle", 4 );
+				return SRESULT_DONE;
+			}
 
-===============================================================================
-*/
 
-/*
-================
-rvLightningPath::StopEffects
-================
-*/
-void rvLightningPath::StopEffects( void ) {
-	if ( trailEffect ) {
-		trailEffect->Stop( );
-		trailEffect->Event_Remove( );
-		trailEffect = NULL;
-	}
-	if ( impactEffect ) {
-		impactEffect->Stop( );
-		impactEffect->PostEventMS( &EV_Remove, 1000 );
-		impactEffect = NULL;
-	}
-}
-
-/*
-================
-rvLightningPath::UpdateEffects
-================
-*/
-void rvLightningPath::UpdateEffects ( const idVec3& from, const idDict& dict ) {
-	idVec3 dir;
-	dir = origin - from;
-	dir.Normalize();
 	
-	// Trail effect
-	if ( !trailEffect ) {
-		trailEffect = gameLocal.PlayEffect ( gameLocal.GetEffect ( dict, "fx_trail_world" ), from, dir.ToMat3(), true, origin );		
-	} else {
-		trailEffect->SetOrigin ( from );
-		trailEffect->SetAxis ( dir.ToMat3() );
-		trailEffect->SetEndOrigin ( origin );
+			if ( gameLocal.time - fireHeldTime > chargeTime ) {	
+				Attack ( true, 9, 6, 0, 1.0f );
+				PlayEffect ( "fx_chargedflash", barrelJointView, false );
+				PlayAnim( ANIMCHANNEL_ALL, "chargedfire", parms.blendFrames );
+			} else {
+				Attack ( true, 9, 6, 0, 1.0f );
+				PlayEffect ( "fx_normalflash", barrelJointView, false );
+				PlayAnim( ANIMCHANNEL_ALL, "fire", parms.blendFrames );
+			}
+			fireHeldTime = 0;
+			
+			return SRESULT_STAGE(FIRE_WAIT);
+		
+		case FIRE_WAIT:
+			if ( AnimDone ( ANIMCHANNEL_ALL, 4 ) ) {
+				SetState ( "Idle", 4 );
+				return SRESULT_DONE;
+			}
+			if ( UpdateFlashlight ( ) || UpdateAttack ( ) ) {
+				return SRESULT_DONE;
+			}
+			return SRESULT_WAIT;
+	}			
+	return SRESULT_ERROR;
+}
+
+/*
+================
+rvWeaponInsaneBox::State_Flashlight
+================
+*/
+stateResult_t rvWeaponInsaneBox::State_Flashlight ( const stateParms_t& parms ) {
+	enum {
+		FLASHLIGHT_INIT,
+		FLASHLIGHT_WAIT,
+	};	
+	switch ( parms.stage ) {
+		case FLASHLIGHT_INIT:			
+			SetStatus ( WP_FLASHLIGHT );
+			// Wait for the flashlight anim to play		
+			PlayAnim( ANIMCHANNEL_ALL, "flashlight", 0 );
+			return SRESULT_STAGE ( FLASHLIGHT_WAIT );
+			
+		case FLASHLIGHT_WAIT:
+			if ( !AnimDone ( ANIMCHANNEL_ALL, 4 ) ) {
+				return SRESULT_WAIT;
+			}
+			
+			if ( owner->IsFlashlightOn() ) {
+				Flashlight ( false );
+			} else {
+				Flashlight ( true );
+			}
+			
+			SetState ( "Idle", 4 );
+			return SRESULT_DONE;
 	}
-	
-	// Impact effect
-	if ( !target || target.GetEntityNum ( ) == ENTITYNUM_NONE ) {
-		if ( impactEffect ) {
-			impactEffect->Stop ( );
-			impactEffect->PostEventMS( &EV_Remove, 1000 );
-			impactEffect = NULL;
-		}
-	} else { 
-		if ( !impactEffect ) {
-			impactEffect = gameLocal.PlayEffect ( gameLocal.GetEffect ( dict, "fx_impact" ), origin, normal.ToMat3(), true );
-		} else {
-			impactEffect->SetOrigin ( origin );
-			impactEffect->SetAxis ( normal.ToMat3 ( ) );
-		}
-	}		
+	return SRESULT_ERROR;
 }
-
-/*
-================
-rvLightningPath::Save
-================
-*/
-void rvLightningPath::Save( idSaveGame* savefile ) const {
-	target.Save( savefile );
-	savefile->WriteVec3( origin );
-	savefile->WriteVec3( normal );
-	trailEffect.Save( savefile );
-	impactEffect.Save( savefile );
-}
-
-/*
-================
-rvLightningPath::Restore
-================
-*/
-void rvLightningPath::Restore( idRestoreGame* savefile ) {
-	target.Restore( savefile );
-	savefile->ReadVec3( origin );
-	savefile->ReadVec3( normal );
-	trailEffect.Restore( savefile );
-	impactEffect.Restore( savefile );
-}
+		
