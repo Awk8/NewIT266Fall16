@@ -889,14 +889,17 @@ bool idInventory::Give( idPlayer *owner, const idDict &spawnArgs, const char *st
 // mekberg: check max ammo vs clipsize when picking up ammo
 		if ( !gameLocal.IsMultiplayer ( ) ) {
 			return DetermineAmmoAvailability ( owner, statname, i, amount, max );	
-		} else if ( ammo[ i ] >= max ) {
+		} else if ( mana >= maxMana ) {
+			return false;
+		}
+		else if ( ammo[ i ] >= max ) {
 			return false;
 		}
 
 		if ( amount && !checkOnly ) {			
-			ammo[ i ] += amount;
-			if ( ( max > 0 ) && ( ammo[ i ] > max ) ) {
-				ammo[ i ] = max;
+			mana += amount;
+			if ( ( maxMana > 0 ) && ( mana > maxMana ) ) {
+				mana = maxMana;
 			}
 		}
 // RAVEN END
@@ -913,17 +916,17 @@ bool idInventory::Give( idPlayer *owner, const idDict &spawnArgs, const char *st
 		if ( !gameLocal.IsMultiplayer ( ) ) {
 			return DetermineAmmoAvailability ( owner, statname, i, amount, max );
 		} else if ( amount ) {	
-			if ( ammo[ i ] >= amount ) {
+			if ( mana >= amount ) {
 				amount = 1;
 			} else {
-				amount = amount - ammo[ i ];
+				amount = amount - mana;
 			}
 		}
 
 		if ( amount && !checkOnly ) {			
-			ammo[ i ] += amount;
-			if ( ( max > 0 ) && ( ammo[ i ] > max ) ) {
-				ammo[ i ] = max;
+			mana += amount;
+			if ( ( maxMana > 0 ) && ( mana > maxMana ) ) {
+				mana = maxMana;
 			}
 		}
 // RAVEN END
@@ -1062,19 +1065,19 @@ void idInventory::Drop( const idDict &spawnArgs, const char *weapon_classname, i
 idInventory::HasMana
 ===============
 */
-/*int idInventory::HasMana( int amount )
+int idInventory::HasMana( int amount )
 {
 	if ( mana <= 0 )
 		return -1;
 	return mana / amount;
-}*/
+}
 
 /*
 ===============
 idInventory::UseMana
 ===============
 */
-/*bool idInventory::UseMana( int amount ) {
+bool idInventory::UseMana( int amount ) {
 	if ( !HasMana( amount ) ) {
 		return false;
 	}
@@ -1086,7 +1089,7 @@ idInventory::UseMana
 	}
 
 	return true;
-}*/
+}
 
 /*
 ===============
