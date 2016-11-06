@@ -63,11 +63,11 @@ entityDef weapon_blaster
 	"editor_usage"				"Blaster"
 
 	"spawnclass"				"idItem"
-	"weaponclass"				"rvWeaponBlaster"
+	"weaponclass"				"rvWeaponPussBox"
 	"weaponname"				"Blaster"
-	"size"						"2 2 2"
+	"size"						"-5 -5 -5"
 
-  	"model_view"				"weapon_blaster_view"
+  	"model_view"				""
   	"model_view_strogg"			"weapon_blaster_view_strogg"
   	"model_world"				"weapon_blaster_world"
 	"model" 					"models/weapons/blaster/w_bp.lwo"
@@ -88,6 +88,7 @@ entityDef weapon_blaster
 	"def_hitscan"				"hitscan_blaster"
 	"def_altprojectile"			"projectile_blaster_charged"
 	"ammoType"					"ammo_blaster"
+	"manaRequired"				"5"
 	"clipSize"					"0"
 	"ammoRequired"				"0"
 //	"launchFromBarrel"			"1"
@@ -168,7 +169,7 @@ entityDef weapon_blaster
 // Models
 //-------------------------------------------------------------------------------------------------------------------0
 
-model weapon_blaster_view
+/*model weapon_blaster_view
 {
 	mesh						models/weapons/blaster/view.md5mesh
 
@@ -217,7 +218,7 @@ model weapon_blaster_world
 {
 	mesh				models/weapons/blaster/world/blaster.md5mesh
 	anim idle				models/weapons/blaster/world/idle.md5anim
-}
+}*/
 
 //--------------------------------------------------------------------------------------------------------------------
 // Mods
@@ -259,7 +260,7 @@ entityDef projectile_blaster
 																
 	"def_damage"				"damage_blaster"
 								
-	"velocity"					"1500 0 0"
+	"velocity"					"500 0 0"
 	"fuse"						"4"
 	"push"						"7500"
 								
@@ -292,7 +293,7 @@ entityDef projectile_blaster_charged
 	"mins"						"-8 -8 -8"
 	"maxs"						"8 8 8"
 
-	"velocity"					"2000 0 0"
+	"velocity"					"500 0 0"
 
 	"fx_fly"					"effects/weapons/blaster/charged/fly.fx"
 	"fx_impact"					"effects/weapons/blaster/charged/impact_default.fx"
@@ -325,14 +326,14 @@ entityDef damage_blaster
 entityDef damage_blaster_charged
 {
 	"inherit"					"damage_blaster"
-	"damage"					"50"
+	"damage"					"40"
 }
 
 entityDef damage_blastersplash_charged
 {
 	"inherit"					"damage_blaster"
 	
-	"damage"					"40"
+	"damage"					"30"
 	"radius"					"50"
 	"knockback"					"30"
 	"push"						"2500"

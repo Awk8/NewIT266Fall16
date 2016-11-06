@@ -721,10 +721,13 @@ entityDef player_marine
 	"respawn_delay"						"1.7"		// minimum delay for respawning after death
 
 	// stats
-	"health"						"500"
-	"maxhealth"						"500"
+	"health"						"100"
+	"maxhealth"						"100"
+	"mana"							"100"
+	"maxmana"						"100"
 	"armor"							"0"
-	"maxarmor"						"300"
+	"maxmana"						"100"
+	"maxarmor"						"100"
 	"minRestoreHealth0"					"20"		// Minimum health when loading a game for skill level 0
 	"minRestoreHealth1"					"10"		// Minimum health when loading a game for skill level 1
 
@@ -821,6 +824,8 @@ entityDef player_strogg
 	"model"								"model_player_strogg"
 
 	// stats
+	"mana"								"100"
+	"maxmana"							"100"
 	"health"							"125"
 	"maxhealth"							"125"
 	"armor"								"0"
@@ -1074,6 +1079,7 @@ entityDef player_marine_mp
 	"weapon10_best"			"1"
 
 	// stats
+	"mana"				"100"
 	"health"			"125"
 	"armor"				"0"
 
