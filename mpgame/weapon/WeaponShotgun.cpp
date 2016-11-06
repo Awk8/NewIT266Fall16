@@ -4,214 +4,88 @@
 #include "../Game_local.h"
 #include "../Weapon.h"
 
-#define BLASTER_SPARM_CHARGEGLOW		6
+const int SHOTGUN_MOD_AMMO = BIT(0);
 
-class rvWeaponOkayBox : public rvWeapon {
+class rvWeaponShotgun : public rvWeapon {
 public:
 
-	CLASS_PROTOTYPE( rvWeaponOkayBox );
+	CLASS_PROTOTYPE( rvWeaponShotgun );
 
-	rvWeaponOkayBox ( void );
+	rvWeaponShotgun ( void );
 
-	virtual void		Spawn				( void );
-	void				Save				( idSaveGame *savefile ) const;
-	void				Restore				( idRestoreGame *savefile );
-	void				PreSave		( void );
-	void				PostSave	( void );
+	virtual void			Spawn				( void );
+	void					Save				( idSaveGame *savefile ) const;
+	void					Restore				( idRestoreGame *savefile );
+	void					PreSave				( void );
+	void					PostSave			( void );
 
 protected:
-
-	bool				UpdateAttack		( void );
-	bool				UpdateFlashlight	( void );
-	void				Flashlight			( bool on );
+	int						hitscans;
 
 private:
 
-	int					chargeTime;
-	int					chargeDelay;
-	idVec2				chargeGlow;
-	bool				fireForced;
-	int					fireHeldTime;
-
-	stateResult_t		State_Raise				( const stateParms_t& parms );
-	stateResult_t		State_Lower				( const stateParms_t& parms );
-	stateResult_t		State_Idle				( const stateParms_t& parms );
-	stateResult_t		State_Charge			( const stateParms_t& parms );
-	stateResult_t		State_Charged			( const stateParms_t& parms );
-	stateResult_t		State_Fire				( const stateParms_t& parms );
-	stateResult_t		State_Flashlight		( const stateParms_t& parms );
+	stateResult_t		State_Idle		( const stateParms_t& parms );
+	stateResult_t		State_Fire		( const stateParms_t& parms );
+	stateResult_t		State_Reload	( const stateParms_t& parms );
 	
-	CLASS_STATES_PROTOTYPE ( rvWeaponOkayBox );
+	CLASS_STATES_PROTOTYPE( rvWeaponShotgun );
 };
 
-CLASS_DECLARATION( rvWeapon, rvWeaponOkayBox )
+CLASS_DECLARATION( rvWeapon, rvWeaponShotgun )
 END_CLASS
 
 /*
 ================
-rvWeaponOkayBox::rvWeaponOkayBox
+rvWeaponShotgun::rvWeaponShotgun
 ================
 */
-rvWeaponOkayBox::rvWeaponOkayBox ( void ) {
+rvWeaponShotgun::rvWeaponShotgun( void ) {
 }
 
 /*
 ================
-rvWeaponOkayBox::UpdateFlashlight
+rvWeaponShotgun::Spawn
 ================
 */
-bool rvWeaponOkayBox::UpdateFlashlight ( void ) {
-	if ( !wsfl.flashlight ) {
-		return false;
-	}
+void rvWeaponShotgun::Spawn( void ) {
+	hitscans   = spawnArgs.GetFloat( "hitscans" );
 	
-	SetState ( "Flashlight", 0 );
-	return true;		
+	SetState( "Raise", 0 );	
 }
 
 /*
 ================
-rvWeaponOkayBox::Flashlight
+rvWeaponShotgun::Save
 ================
 */
-void rvWeaponOkayBox::Flashlight ( bool on ) {
-	owner->Flashlight ( on );
-	
-	if ( on ) {
-		worldModel->ShowSurface ( "models/weapons/blaster/flare" );
-		viewModel->ShowSurface ( "models/weapons/blaster/flare" );
-	} else {
-		worldModel->HideSurface ( "models/weapons/blaster/flare" );
-		viewModel->HideSurface ( "models/weapons/blaster/flare" );
-	}
+void rvWeaponShotgun::Save( idSaveGame *savefile ) const {
 }
 
 /*
 ================
-rvWeaponOkayBox::UpdateAttack
+rvWeaponShotgun::Restore
 ================
 */
-bool rvWeaponOkayBox::UpdateAttack ( void ) {
-	// Clear fire forced
-	if ( fireForced ) {
-		if ( !wsfl.attack ) {
-			fireForced = false;
-		} else {
-			return false;
-		}
-	}
-
-	// If the player is pressing the fire button and they have enough ammo for a shot
-	// then start the shooting process.
-	if (manaAvailable())
-	//if (AmmoAvailable())
-	{
-		if ( wsfl.attack && gameLocal.time >= nextAttackTime ) {
-			// Save the time which the fire button was pressed
-			if ( fireHeldTime == 0 ) {		
-				nextAttackTime = gameLocal.time + (fireRate * owner->PowerUpModifier ( PMOD_FIRERATE ));
-				fireHeldTime   = gameLocal.time;
-				viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, chargeGlow[0] );
-			}
-		}		
-	}
-
-	// If they have the charge mod and they have overcome the initial charge 
-	// delay then transition to the charge state.
-	if ( fireHeldTime != 0 ) {
-		if ( gameLocal.time - fireHeldTime > chargeDelay ) {
-			SetState ( "Charge", 4 );
-			return true;
-		}
-
-		// If the fire button was let go but was pressed at one point then 
-		// release the shot.
-		if ( !wsfl.attack ) {
-			idPlayer * player = gameLocal.GetLocalPlayer();
-			if( player )	{
-			
-				if( player->GuiActive())	{
-					//make sure the player isn't looking at a gui first
-					SetState ( "Lower", 0 );
-				} else {
-					SetState ( "Fire", 0 );
-				}
-			}
-			return true;
-		}
-	}
-	
-	return false;
+void rvWeaponShotgun::Restore( idRestoreGame *savefile ) {
+	hitscans   = spawnArgs.GetFloat( "hitscans" );
 }
 
 /*
 ================
-rvWeaponOkayBox::Spawn
+rvWeaponShotgun::PreSave
 ================
 */
-void rvWeaponOkayBox::Spawn ( void ) {
-	viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, 0 );
-	SetState ( "Raise", 0 );
-	
-	chargeGlow   = spawnArgs.GetVec2 ( "chargeGlow" );
-	chargeTime   = SEC2MS ( spawnArgs.GetFloat ( "chargeTime" ) );
-	chargeDelay  = SEC2MS ( spawnArgs.GetFloat ( "chargeDelay" ) );
-
-	fireHeldTime		= 0;
-	fireForced			= false;
-			
-	Flashlight ( owner->IsFlashlightOn() );
+void rvWeaponShotgun::PreSave ( void ) {
 }
 
 /*
 ================
-rvWeaponOkayBox::Save
+rvWeaponShotgun::PostSave
 ================
 */
-void rvWeaponOkayBox::Save ( idSaveGame *savefile ) const {
-	savefile->WriteInt ( chargeTime );
-	savefile->WriteInt ( chargeDelay );
-	savefile->WriteVec2 ( chargeGlow );
-	savefile->WriteBool ( fireForced );
-	savefile->WriteInt ( fireHeldTime );
+void rvWeaponShotgun::PostSave ( void ) {
 }
 
-/*
-================
-rvWeaponOkayBox::Restore
-================
-*/
-void rvWeaponOkayBox::Restore ( idRestoreGame *savefile ) {
-	savefile->ReadInt ( chargeTime );
-	savefile->ReadInt ( chargeDelay );
-	savefile->ReadVec2 ( chargeGlow );
-	savefile->ReadBool ( fireForced );
-	savefile->ReadInt ( fireHeldTime );
-}
-
-/*
-================
-rvWeaponOkayBox::PreSave
-================
-*/
-void rvWeaponOkayBox::PreSave ( void ) {
-
-	SetState ( "Idle", 4 );
-
-	StopSound( SND_CHANNEL_WEAPON, 0);
-	StopSound( SND_CHANNEL_BODY, 0);
-	StopSound( SND_CHANNEL_ITEM, 0);
-	StopSound( SND_CHANNEL_ANY, false );
-	
-}
-
-/*
-================
-rvWeaponOkayBox::PostSave
-================
-*/
-void rvWeaponOkayBox::PostSave ( void ) {
-}
 
 /*
 ===============================================================================
@@ -221,34 +95,135 @@ void rvWeaponOkayBox::PostSave ( void ) {
 ===============================================================================
 */
 
-CLASS_STATES_DECLARATION ( rvWeaponOkayBox )
-	STATE ( "Raise",						rvWeaponOkayBox::State_Raise )
-	STATE ( "Lower",						rvWeaponOkayBox::State_Lower )
-	STATE ( "Idle",							rvWeaponOkayBox::State_Idle)
-	STATE ( "Charge",						rvWeaponOkayBox::State_Charge )
-	STATE ( "Charged",						rvWeaponOkayBox::State_Charged )
-	STATE ( "Fire",							rvWeaponOkayBox::State_Fire )
-	STATE ( "Flashlight",					rvWeaponOkayBox::State_Flashlight )
+CLASS_STATES_DECLARATION( rvWeaponShotgun )
+	STATE( "Idle",				rvWeaponShotgun::State_Idle)
+	STATE( "Fire",				rvWeaponShotgun::State_Fire )
+	STATE( "Reload",			rvWeaponShotgun::State_Reload )
 END_CLASS_STATES
 
 /*
 ================
-rvWeaponOkayBox::State_Raise
+rvWeaponShotgun::State_Idle
 ================
 */
-stateResult_t rvWeaponOkayBox::State_Raise( const stateParms_t& parms ) {
+stateResult_t rvWeaponShotgun::State_Idle( const stateParms_t& parms ) {
 	enum {
-		RAISE_INIT,
-		RAISE_WAIT,
+		STAGE_INIT,
+		STAGE_WAIT,
 	};	
 	switch ( parms.stage ) {
-		case RAISE_INIT:			
-			SetStatus ( WP_RISING );
-			PlayAnim( ANIMCHANNEL_ALL, "raise", parms.blendFrames );
-			return SRESULT_STAGE(RAISE_WAIT);
+		case STAGE_INIT:
+			if ( !AmmoAvailable( ) ) {
+				SetStatus( WP_OUTOFAMMO );
+			} else {
+				SetStatus( WP_READY );
+			}
+		
+			PlayCycle( ANIMCHANNEL_ALL, "idle", parms.blendFrames );
+			return SRESULT_STAGE ( STAGE_WAIT );
+		
+		case STAGE_WAIT:			
+			if ( wsfl.lowerWeapon ) {
+				SetState( "Lower", 4 );
+				return SRESULT_DONE;
+			}		
+			if ( !clipSize ) {
+				if ( gameLocal.time > nextAttackTime && wsfl.attack && AmmoAvailable ( ) ) {
+					SetState( "Fire", 0 );
+					return SRESULT_DONE;
+				}  
+			} else {				
+				if ( gameLocal.time > nextAttackTime && wsfl.attack && AmmoInClip ( ) ) {
+					SetState( "Fire", 0 );
+					return SRESULT_DONE;
+				}  
+				if ( wsfl.attack && AutoReload() && !AmmoInClip ( ) && AmmoAvailable () ) {
+					SetState( "Reload", 4 );
+					return SRESULT_DONE;			
+				}
+				if ( wsfl.netReload || (wsfl.reload && AmmoInClip() < ClipSize() && AmmoAvailable()>AmmoInClip()) ) {
+					SetState( "Reload", 4 );
+					return SRESULT_DONE;			
+				}				
+			}
+			return SRESULT_WAIT;
+	}
+	return SRESULT_ERROR;
+}
+
+/*
+================
+rvWeaponShotgun::State_Fire
+================
+*/
+stateResult_t rvWeaponShotgun::State_Fire( const stateParms_t& parms ) {
+	enum {
+		STAGE_INIT,
+		STAGE_WAIT,
+	};	
+	switch ( parms.stage ) {
+		case STAGE_INIT:
+			nextAttackTime = gameLocal.time + (fireRate * owner->PowerUpModifier ( PMOD_FIRERATE ));
+			Attack( false, hitscans, spread, 0, 1.0f );
+			PlayAnim( ANIMCHANNEL_ALL, "fire", 0 );	
+			return SRESULT_STAGE( STAGE_WAIT );
+	
+		case STAGE_WAIT:
+			if ( (!gameLocal.isMultiplayer && (wsfl.lowerWeapon || AnimDone( ANIMCHANNEL_ALL, 0 )) ) || AnimDone( ANIMCHANNEL_ALL, 0 ) ) {
+				SetState( "Idle", 0 );
+				return SRESULT_DONE;
+			}									
+			if ( wsfl.attack && gameLocal.time >= nextAttackTime && AmmoInClip() ) {
+				SetState( "Fire", 0 );
+				return SRESULT_DONE;
+			}
+			if ( clipSize ) {
+				if ( (wsfl.netReload || (wsfl.reload && AmmoInClip() < ClipSize() && AmmoAvailable()>AmmoInClip())) ) {
+					SetState( "Reload", 4 );
+					return SRESULT_DONE;			
+				}				
+			}
+			return SRESULT_WAIT;
+	}
+	return SRESULT_ERROR;
+}
+
+/*
+================
+rvWeaponShotgun::State_Reload
+================
+*/
+stateResult_t rvWeaponShotgun::State_Reload ( const stateParms_t& parms ) {
+	enum {
+		STAGE_INIT,
+		STAGE_WAIT,
+		STAGE_RELOADSTARTWAIT,
+		STAGE_RELOADLOOP,
+		STAGE_RELOADLOOPWAIT,
+		STAGE_RELOADDONE,
+		STAGE_RELOADDONEWAIT
+	};	
+	switch ( parms.stage ) {
+		case STAGE_INIT:
+			if ( wsfl.netReload ) {
+				wsfl.netReload = false;
+			} else {
+				NetReload ( );
+			}
 			
-		case RAISE_WAIT:
+			SetStatus ( WP_RELOAD );
+			
+			if ( mods & SHOTGUN_MOD_AMMO ) {				
+				PlayAnim ( ANIMCHANNEL_ALL, "reload_clip", parms.blendFrames );
+			} else {
+				PlayAnim ( ANIMCHANNEL_ALL, "reload_start", parms.blendFrames );
+				return SRESULT_STAGE ( STAGE_RELOADSTARTWAIT );
+			}
+			return SRESULT_STAGE ( STAGE_WAIT );
+			
+		case STAGE_WAIT:
 			if ( AnimDone ( ANIMCHANNEL_ALL, 4 ) ) {
+				AddToClip ( ClipSize() );
 				SetState ( "Idle", 4 );
 				return SRESULT_DONE;
 			}
@@ -257,235 +232,58 @@ stateResult_t rvWeaponOkayBox::State_Raise( const stateParms_t& parms ) {
 				return SRESULT_DONE;
 			}
 			return SRESULT_WAIT;
-	}
-	return SRESULT_ERROR;	
-}
-
-/*
-================
-rvWeaponOkayBox::State_Lower
-================
-*/
-stateResult_t rvWeaponOkayBox::State_Lower ( const stateParms_t& parms ) {
-	enum {
-		LOWER_INIT,
-		LOWER_WAIT,
-		LOWER_WAITRAISE
-	};	
-	switch ( parms.stage ) {
-		case LOWER_INIT:
-			SetStatus ( WP_LOWERING );
-			PlayAnim( ANIMCHANNEL_ALL, "putaway", parms.blendFrames );
-			return SRESULT_STAGE(LOWER_WAIT);
 			
-		case LOWER_WAIT:
+		case STAGE_RELOADSTARTWAIT:
 			if ( AnimDone ( ANIMCHANNEL_ALL, 0 ) ) {
-				SetStatus ( WP_HOLSTERED );
-				return SRESULT_STAGE(LOWER_WAITRAISE);
+				return SRESULT_STAGE ( STAGE_RELOADLOOP );
 			}
-			return SRESULT_WAIT;
-	
-		case LOWER_WAITRAISE:
-			if ( wsfl.raiseWeapon ) {
-				SetState ( "Raise", 0 );
-				return SRESULT_DONE;
-			}
-			return SRESULT_WAIT;
-	}
-	return SRESULT_ERROR;
-}
-
-/*
-================
-rvWeaponOkayBox::State_Idle
-================
-*/
-stateResult_t rvWeaponOkayBox::State_Idle ( const stateParms_t& parms ) {	
-	enum {
-		IDLE_INIT,
-		IDLE_WAIT,
-	};	
-	switch ( parms.stage ) {
-		case IDLE_INIT:			
-			SetStatus ( WP_READY );
-			PlayCycle( ANIMCHANNEL_ALL, "idle", parms.blendFrames );
-			return SRESULT_STAGE ( IDLE_WAIT );
-			
-		case IDLE_WAIT:
 			if ( wsfl.lowerWeapon ) {
 				SetState ( "Lower", 4 );
 				return SRESULT_DONE;
 			}
+			return SRESULT_WAIT;
 			
-			if ( UpdateFlashlight ( ) ) { 
+		case STAGE_RELOADLOOP:		
+			if ( (wsfl.attack && AmmoInClip() ) || AmmoAvailable ( ) <= AmmoInClip ( ) || AmmoInClip() == ClipSize() ) {
+				return SRESULT_STAGE ( STAGE_RELOADDONE );
+			}
+			PlayAnim ( ANIMCHANNEL_ALL, "reload_loop", 0 );
+			return SRESULT_STAGE ( STAGE_RELOADLOOPWAIT );
+			
+		case STAGE_RELOADLOOPWAIT:
+			if ( (wsfl.attack && AmmoInClip() ) || wsfl.netEndReload ) {
+				return SRESULT_STAGE ( STAGE_RELOADDONE );
+			}
+			if ( wsfl.lowerWeapon ) {
+				SetState ( "Lower", 4 );
 				return SRESULT_DONE;
 			}
-			if ( UpdateAttack ( ) ) {
-				return SRESULT_DONE;
+			if ( AnimDone ( ANIMCHANNEL_ALL, 0 ) ) {
+				AddToClip( 1 );
+				return SRESULT_STAGE ( STAGE_RELOADLOOP );
 			}
 			return SRESULT_WAIT;
-	}
-	return SRESULT_ERROR;
-}
+		
+		case STAGE_RELOADDONE:
+			NetEndReload ( );
+			PlayAnim ( ANIMCHANNEL_ALL, "reload_end", 0 );
+			return SRESULT_STAGE ( STAGE_RELOADDONEWAIT );
 
-/*
-================
-rvWeaponOkayBox::State_Charge
-================
-*/
-stateResult_t rvWeaponOkayBox::State_Charge ( const stateParms_t& parms ) {
-	enum {
-		CHARGE_INIT,
-		CHARGE_WAIT,
-	};	
-	switch ( parms.stage ) {
-		case CHARGE_INIT:
-			viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, chargeGlow[0] );
-			StartSound ( "snd_charge", SND_CHANNEL_ITEM, 0, false, NULL );
-			PlayCycle( ANIMCHANNEL_ALL, "charging", parms.blendFrames );
-			return SRESULT_STAGE ( CHARGE_WAIT );
-			
-		case CHARGE_WAIT:	
-			if ( gameLocal.time - fireHeldTime < chargeTime ) {
-				float f;
-				f = (float)(gameLocal.time - fireHeldTime) / (float)chargeTime;
-				f = chargeGlow[0] + f * (chargeGlow[1] - chargeGlow[0]);
-				f = idMath::ClampFloat ( chargeGlow[0], chargeGlow[1], f );
-				viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, f );
-				
-				if ( !wsfl.attack ) {
-					SetState ( "Fire", 0 );
-					return SRESULT_DONE;
-				}
-				
-				return SRESULT_WAIT;
-			} 
-			SetState ( "Charged", 4 );
-			return SRESULT_DONE;
-	}
-	return SRESULT_ERROR;	
-}
-
-/*
-================
-rvWeaponOkayBox::State_Charged
-================
-*/
-stateResult_t rvWeaponOkayBox::State_Charged ( const stateParms_t& parms ) {
-	enum {
-		CHARGED_INIT,
-		CHARGED_WAIT,
-	};	
-	switch ( parms.stage ) {
-		case CHARGED_INIT:		
-			viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, 1.0f  );
-
-			StopSound ( SND_CHANNEL_ITEM, false );
-			StartSound ( "snd_charge_loop", SND_CHANNEL_ITEM, 0, false, NULL );
-			StartSound ( "snd_charge_click", SND_CHANNEL_BODY, 0, false, NULL );
-			return SRESULT_STAGE(CHARGED_WAIT);
-			
-		case CHARGED_WAIT:
-			if ( !wsfl.attack ) {
-				fireForced = true;
+		case STAGE_RELOADDONEWAIT:
+			if ( wsfl.lowerWeapon ) {
+				SetState ( "Lower", 4 );
+				return SRESULT_DONE;
+			}
+			if ( wsfl.attack && AmmoInClip ( ) && gameLocal.time > nextAttackTime ) {
 				SetState ( "Fire", 0 );
 				return SRESULT_DONE;
 			}
-			return SRESULT_WAIT;
-	}
-	return SRESULT_ERROR;
-}
-
-/*
-================
-rvWeaponOkayBox::State_Fire
-================
-*/
-stateResult_t rvWeaponOkayBox::State_Fire ( const stateParms_t& parms ) {
-	enum {
-		FIRE_INIT,
-		FIRE_WAIT,
-	};	
-	switch ( parms.stage ) {
-		case FIRE_INIT:	
-
-			StopSound ( SND_CHANNEL_ITEM, false );
-			viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, 0 );
-			//don't fire if we're targeting a gui.
-			idPlayer* player;
-			player = gameLocal.GetLocalPlayer();
-
-			//make sure the player isn't looking at a gui first
-			if( player && player->GuiActive() )	{
-				fireHeldTime = 0;
-				SetState ( "Lower", 0 );
-				return SRESULT_DONE;
-			}
-
-			if( player && !player->CanFire() )	{
-				fireHeldTime = 0;
-				SetState ( "Idle", 4 );
-				return SRESULT_DONE;
-			}
-
-
-	
-			if ( gameLocal.time - fireHeldTime > chargeTime ) {	
-				Attack ( true, 3, 6, 0, 1.0f );
-				PlayEffect ( "fx_chargedflash", barrelJointView, false );
-				PlayAnim( ANIMCHANNEL_ALL, "chargedfire", parms.blendFrames );
-			} else {
-				Attack ( true, 3, 6, 0, 1.0f );
-				PlayEffect ( "fx_normalflash", barrelJointView, false );
-				PlayAnim( ANIMCHANNEL_ALL, "fire", parms.blendFrames );
-			}
-			fireHeldTime = 0;
-			
-			return SRESULT_STAGE(FIRE_WAIT);
-		
-		case FIRE_WAIT:
 			if ( AnimDone ( ANIMCHANNEL_ALL, 4 ) ) {
 				SetState ( "Idle", 4 );
 				return SRESULT_DONE;
 			}
-			if ( UpdateFlashlight ( ) || UpdateAttack ( ) ) {
-				return SRESULT_DONE;
-			}
 			return SRESULT_WAIT;
-	}			
-	return SRESULT_ERROR;
-}
-
-/*
-================
-rvWeaponOkayBox::State_Flashlight
-================
-*/
-stateResult_t rvWeaponOkayBox::State_Flashlight ( const stateParms_t& parms ) {
-	enum {
-		FLASHLIGHT_INIT,
-		FLASHLIGHT_WAIT,
-	};	
-	switch ( parms.stage ) {
-		case FLASHLIGHT_INIT:			
-			SetStatus ( WP_FLASHLIGHT );
-			// Wait for the flashlight anim to play		
-			PlayAnim( ANIMCHANNEL_ALL, "flashlight", 0 );
-			return SRESULT_STAGE ( FLASHLIGHT_WAIT );
-			
-		case FLASHLIGHT_WAIT:
-			if ( !AnimDone ( ANIMCHANNEL_ALL, 4 ) ) {
-				return SRESULT_WAIT;
-			}
-			
-			if ( owner->IsFlashlightOn() ) {
-				Flashlight ( false );
-			} else {
-				Flashlight ( true );
-			}
-			
-			SetState ( "Idle", 4 );
-			return SRESULT_DONE;
 	}
-	return SRESULT_ERROR;
+	return SRESULT_ERROR;	
 }
+			

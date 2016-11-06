@@ -3,215 +3,310 @@
 
 #include "../Game_local.h"
 #include "../Weapon.h"
+#include "../client/ClientEffect.h"
 
-#define BLASTER_SPARM_CHARGEGLOW		6
+#ifndef __GAME_PROJECTILE_H__
+#include "../Projectile.h"
+#endif
 
-class rvWeaponStrongBox : public rvWeapon {
+class rvWeaponRocketLauncher : public rvWeapon {
 public:
 
-	CLASS_PROTOTYPE( rvWeaponStrongBox );
+	CLASS_PROTOTYPE( rvWeaponRocketLauncher );
 
-	rvWeaponStrongBox ( void );
+	rvWeaponRocketLauncher ( void );
+	~rvWeaponRocketLauncher ( void );
 
-	virtual void		Spawn				( void );
-	void				Save				( idSaveGame *savefile ) const;
-	void				Restore				( idRestoreGame *savefile );
-	void				PreSave		( void );
-	void				PostSave	( void );
+	virtual void			Spawn				( void );
+	virtual void			Think				( void );
+
+	void					Save( idSaveGame *saveFile ) const;
+	void					Restore( idRestoreGame *saveFile );
+	void					PreSave				( void );
+	void					PostSave			( void );
+
+
+#ifdef _XENON
+	virtual bool		AllowAutoAim			( void ) const { return false; }
+#endif
 
 protected:
 
-	bool				UpdateAttack		( void );
-	bool				UpdateFlashlight	( void );
-	void				Flashlight			( bool on );
+	virtual void			OnLaunchProjectile	( idProjectile* proj );
+
+	void					SetRocketState		( const char* state, int blendFrames );
+
+	rvClientEntityPtr<rvClientEffect>	guideEffect;
+	idList< idEntityPtr<idEntity> >		guideEnts;
+	float								guideSpeedSlow;
+	float								guideSpeedFast;
+	float								guideRange;
+	float								guideAccelTime;
+
+	rvStateThread						rocketThread;
+
+	float								reloadRate;
+
+	bool								idleEmpty;
 
 private:
 
-	int					chargeTime;
-	int					chargeDelay;
-	idVec2				chargeGlow;
-	bool				fireForced;
-	int					fireHeldTime;
-
+	stateResult_t		State_Idle				( const stateParms_t& parms );
+	stateResult_t		State_Fire				( const stateParms_t& parms );
 	stateResult_t		State_Raise				( const stateParms_t& parms );
 	stateResult_t		State_Lower				( const stateParms_t& parms );
-	stateResult_t		State_Idle				( const stateParms_t& parms );
-	stateResult_t		State_Charge			( const stateParms_t& parms );
-	stateResult_t		State_Charged			( const stateParms_t& parms );
-	stateResult_t		State_Fire				( const stateParms_t& parms );
-	stateResult_t		State_Flashlight		( const stateParms_t& parms );
 	
-	CLASS_STATES_PROTOTYPE ( rvWeaponStrongBox );
+	stateResult_t		State_Rocket_Idle		( const stateParms_t& parms );
+	stateResult_t		State_Rocket_Reload		( const stateParms_t& parms );
+	
+	stateResult_t		Frame_AddToClip			( const stateParms_t& parms );
+	
+	CLASS_STATES_PROTOTYPE ( rvWeaponRocketLauncher );
 };
 
-CLASS_DECLARATION( rvWeapon, rvWeaponStrongBox )
+CLASS_DECLARATION( rvWeapon, rvWeaponRocketLauncher )
 END_CLASS
 
 /*
 ================
-rvWeaponStrongBox::rvWeaponStrongBox
+rvWeaponRocketLauncher::rvWeaponRocketLauncher
 ================
 */
-rvWeaponStrongBox::rvWeaponStrongBox ( void ) {
+rvWeaponRocketLauncher::rvWeaponRocketLauncher ( void ) {
 }
 
 /*
 ================
-rvWeaponStrongBox::UpdateFlashlight
+rvWeaponRocketLauncher::~rvWeaponRocketLauncher
 ================
 */
-bool rvWeaponStrongBox::UpdateFlashlight ( void ) {
-	if ( !wsfl.flashlight ) {
-		return false;
+rvWeaponRocketLauncher::~rvWeaponRocketLauncher ( void ) {
+	if ( guideEffect ) {
+		guideEffect->Stop();
+	}
+}
+
+/*
+================
+rvWeaponRocketLauncher::Spawn
+================
+*/
+void rvWeaponRocketLauncher::Spawn ( void ) {
+	float f;
+
+	idleEmpty = false;
+	
+	spawnArgs.GetFloat ( "lockRange", "0", guideRange );
+
+	spawnArgs.GetFloat ( "lockSlowdown", ".25", f );
+	attackDict.GetFloat ( "speed", "0", guideSpeedFast );
+	guideSpeedSlow = guideSpeedFast * f;
+	
+	reloadRate = SEC2MS ( spawnArgs.GetFloat ( "reloadRate", ".8" ) );
+	
+	guideAccelTime = SEC2MS ( spawnArgs.GetFloat ( "lockAccelTime", ".25" ) );
+	
+	// Start rocket thread
+	rocketThread.SetName ( viewModel->GetName ( ) );
+	rocketThread.SetOwner ( this );
+
+	// Adjust reload animations to match the fire rate
+	idAnim* anim;
+	int		animNum;
+	float	rate;
+	animNum = viewModel->GetAnimator()->GetAnim ( "reload" );
+	if ( animNum ) {
+		anim = (idAnim*)viewModel->GetAnimator()->GetAnim ( animNum );
+		rate = (float)anim->Length() / (float)SEC2MS(spawnArgs.GetFloat ( "reloadRate", ".8" ));
+		anim->SetPlaybackRate ( rate );
+	}
+
+	animNum = viewModel->GetAnimator()->GetAnim ( "reload_empty" );
+	if ( animNum ) {
+		anim = (idAnim*)viewModel->GetAnimator()->GetAnim ( animNum );
+		rate = (float)anim->Length() / (float)SEC2MS(spawnArgs.GetFloat ( "reloadRate", ".8" ));
+		anim->SetPlaybackRate ( rate );
+	}
+
+	SetState ( "Raise", 0 );	
+	SetRocketState ( "Rocket_Idle", 0 );
+}
+
+/*
+================
+rvWeaponRocketLauncher::Think
+================
+*/
+void rvWeaponRocketLauncher::Think ( void ) {	
+	trace_t	tr;
+	int		i;
+
+	rocketThread.Execute ( );
+
+	// Let the real weapon think first
+	rvWeapon::Think ( );
+
+	// IF no guide range is set then we dont have the mod yet	
+	if ( !guideRange ) {
+		return;
 	}
 	
-	SetState ( "Flashlight", 0 );
-	return true;		
-}
+	if ( !wsfl.zoom ) {
+		if ( guideEffect ) {
+			guideEffect->Stop();
+			guideEffect = NULL;
+		}
 
-/*
-================
-rvWeaponStrongBox::Flashlight
-================
-*/
-void rvWeaponStrongBox::Flashlight ( bool on ) {
-	owner->Flashlight ( on );
+		for ( i = guideEnts.Num() - 1; i >= 0; i -- ) {
+			idGuidedProjectile* proj = static_cast<idGuidedProjectile*>(guideEnts[i].GetEntity());
+			if ( !proj || proj->IsHidden ( ) ) {
+				guideEnts.RemoveIndex ( i );
+				continue;
+			}
+			
+			// If the rocket is still guiding then stop the guide and slow it down
+			if ( proj->GetGuideType ( ) != idGuidedProjectile::GUIDE_NONE ) {
+				proj->CancelGuide ( );				
+				proj->SetSpeed ( guideSpeedFast, (1.0f - (proj->GetSpeed ( ) - guideSpeedSlow) / (guideSpeedFast - guideSpeedSlow)) * guideAccelTime );
+			}
+		}
+
+		return;
+	}
+						
+	// Cast a ray out to the lock range
+// RAVEN BEGIN
+// ddynerman: multiple clip worlds
+	gameLocal.TracePoint(	owner, tr, 
+							playerViewOrigin, 
+							playerViewOrigin + playerViewAxis[0] * guideRange, 
+							MASK_SHOT_RENDERMODEL, owner );
+// RAVEN END
 	
-	if ( on ) {
-		worldModel->ShowSurface ( "models/weapons/blaster/flare" );
-		viewModel->ShowSurface ( "models/weapons/blaster/flare" );
+	for ( i = guideEnts.Num() - 1; i >= 0; i -- ) {
+		idGuidedProjectile* proj = static_cast<idGuidedProjectile*>(guideEnts[i].GetEntity());
+		if ( !proj || proj->IsHidden() ) {
+			guideEnts.RemoveIndex ( i );
+			continue;
+		}
+		
+		// If the rocket isnt guiding yet then adjust its speed back to normal
+		if ( proj->GetGuideType ( ) == idGuidedProjectile::GUIDE_NONE ) {
+			proj->SetSpeed ( guideSpeedSlow, (proj->GetSpeed ( ) - guideSpeedSlow) / (guideSpeedFast - guideSpeedSlow) * guideAccelTime );
+		}
+		proj->GuideTo ( tr.endpos );				
+	}
+	
+	if ( !guideEffect ) {
+		guideEffect = gameLocal.PlayEffect ( gameLocal.GetEffect ( spawnArgs, "fx_guide" ), tr.endpos, tr.c.normal.ToMat3(), true, vec3_origin, true );
 	} else {
-		worldModel->HideSurface ( "models/weapons/blaster/flare" );
-		viewModel->HideSurface ( "models/weapons/blaster/flare" );
+		guideEffect->SetOrigin ( tr.endpos );
+		guideEffect->SetAxis ( tr.c.normal.ToMat3() );
 	}
 }
 
 /*
 ================
-rvWeaponStrongBox::UpdateAttack
+rvWeaponRocketLauncher::OnLaunchProjectile
 ================
 */
-bool rvWeaponStrongBox::UpdateAttack ( void ) {
-	// Clear fire forced
-	if ( fireForced ) {
-		if ( !wsfl.attack ) {
-			fireForced = false;
-		} else {
-			return false;
-		}
+void rvWeaponRocketLauncher::OnLaunchProjectile ( idProjectile* proj ) {
+	rvWeapon::OnLaunchProjectile(proj);
+
+	// Double check that its actually a guided projectile
+	if ( !proj || !proj->IsType ( idGuidedProjectile::GetClassType() ) ) {
+		return;
 	}
 
-	// If the player is pressing the fire button and they have enough ammo for a shot
-	// then start the shooting process.
-	if (manaAvailable())
-	//if (AmmoAvailable())
-	{
-		if ( wsfl.attack && gameLocal.time >= nextAttackTime ) {
-			// Save the time which the fire button was pressed
-			if ( fireHeldTime == 0 ) {		
-				nextAttackTime = gameLocal.time + (fireRate * owner->PowerUpModifier ( PMOD_FIRERATE ));
-				fireHeldTime   = gameLocal.time;
-				viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, chargeGlow[0] );
-			}
-		}		
-	}
+	// Launch the projectile
+	idEntityPtr<idEntity> ptr;
+	ptr = proj;
+	guideEnts.Append ( ptr );	
+}
 
-	// If they have the charge mod and they have overcome the initial charge 
-	// delay then transition to the charge state.
-	if ( fireHeldTime != 0 ) {
-		if ( gameLocal.time - fireHeldTime > chargeDelay ) {
-			SetState ( "Charge", 4 );
-			return true;
-		}
+/*
+================
+rvWeaponRocketLauncher::SetRocketState
+================
+*/
+void rvWeaponRocketLauncher::SetRocketState ( const char* state, int blendFrames ) {
+	rocketThread.SetState ( state, blendFrames );
+}
 
-		// If the fire button was let go but was pressed at one point then 
-		// release the shot.
-		if ( !wsfl.attack ) {
-			idPlayer * player = gameLocal.GetLocalPlayer();
-			if( player )	{
-			
-				if( player->GuiActive())	{
-					//make sure the player isn't looking at a gui first
-					SetState ( "Lower", 0 );
-				} else {
-					SetState ( "Fire", 0 );
-				}
-			}
-			return true;
+/*
+=====================
+rvWeaponRocketLauncher::Save
+=====================
+*/
+void rvWeaponRocketLauncher::Save( idSaveGame *saveFile ) const {
+	saveFile->WriteObject( guideEffect );
+
+	idEntity* ent = NULL;
+	saveFile->WriteInt( guideEnts.Num() ); 
+	for( int ix = 0; ix < guideEnts.Num(); ++ix ) {
+		ent = guideEnts[ ix ].GetEntity();
+		if( ent ) {
+			saveFile->WriteObject( ent );
 		}
 	}
 	
-	return false;
-}
-
-/*
-================
-rvWeaponStrongBox::Spawn
-================
-*/
-void rvWeaponStrongBox::Spawn ( void ) {
-	viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, 0 );
-	SetState ( "Raise", 0 );
+	saveFile->WriteFloat( guideSpeedSlow );
+	saveFile->WriteFloat( guideSpeedFast );
+	saveFile->WriteFloat( guideRange );
+	saveFile->WriteFloat( guideAccelTime );
 	
-	chargeGlow   = spawnArgs.GetVec2 ( "chargeGlow" );
-	chargeTime   = SEC2MS ( spawnArgs.GetFloat ( "chargeTime" ) );
-	chargeDelay  = SEC2MS ( spawnArgs.GetFloat ( "chargeDelay" ) );
-
-	fireHeldTime		= 0;
-	fireForced			= false;
-			
-	Flashlight ( owner->IsFlashlightOn() );
-}
-
-/*
-================
-rvWeaponStrongBox::Save
-================
-*/
-void rvWeaponStrongBox::Save ( idSaveGame *savefile ) const {
-	savefile->WriteInt ( chargeTime );
-	savefile->WriteInt ( chargeDelay );
-	savefile->WriteVec2 ( chargeGlow );
-	savefile->WriteBool ( fireForced );
-	savefile->WriteInt ( fireHeldTime );
-}
-
-/*
-================
-rvWeaponStrongBox::Restore
-================
-*/
-void rvWeaponStrongBox::Restore ( idRestoreGame *savefile ) {
-	savefile->ReadInt ( chargeTime );
-	savefile->ReadInt ( chargeDelay );
-	savefile->ReadVec2 ( chargeGlow );
-	savefile->ReadBool ( fireForced );
-	savefile->ReadInt ( fireHeldTime );
-}
-
-/*
-================
-rvWeaponStrongBox::PreSave
-================
-*/
-void rvWeaponStrongBox::PreSave ( void ) {
-
-	SetState ( "Idle", 4 );
-
-	StopSound( SND_CHANNEL_WEAPON, 0);
-	StopSound( SND_CHANNEL_BODY, 0);
-	StopSound( SND_CHANNEL_ITEM, 0);
-	StopSound( SND_CHANNEL_ANY, false );
+	saveFile->WriteFloat ( reloadRate );
 	
+	rocketThread.Save( saveFile );
+}
+
+/*
+=====================
+rvWeaponRocketLauncher::Restore
+=====================
+*/
+void rvWeaponRocketLauncher::Restore( idRestoreGame *saveFile ) {
+	int numEnts = 0;
+	idEntity* ent = NULL;
+	rvClientEffect* clientEffect = NULL;
+
+	saveFile->ReadObject( reinterpret_cast<idClass *&>(clientEffect) );
+	guideEffect = clientEffect;
+	
+	saveFile->ReadInt( numEnts );
+	guideEnts.Clear();
+	guideEnts.SetNum( numEnts );
+	for( int ix = 0; ix < numEnts; ++ix ) {
+		saveFile->ReadObject( reinterpret_cast<idClass *&>(ent) );
+		guideEnts[ ix ] = ent;
+	}
+	
+	saveFile->ReadFloat( guideSpeedSlow );
+	saveFile->ReadFloat( guideSpeedFast );
+	saveFile->ReadFloat( guideRange );
+	saveFile->ReadFloat( guideAccelTime );
+	
+	saveFile->ReadFloat ( reloadRate );
+	
+	rocketThread.Restore( saveFile, this );	
 }
 
 /*
 ================
-rvWeaponStrongBox::PostSave
+rvWeaponRocketLauncher::PreSave
 ================
 */
-void rvWeaponStrongBox::PostSave ( void ) {
+void rvWeaponRocketLauncher::PreSave ( void ) {
 }
+
+/*
+================
+rvWeaponRocketLauncher::PostSave
+================
+*/
+void rvWeaponRocketLauncher::PostSave ( void ) {
+}
+
 
 /*
 ===============================================================================
@@ -221,34 +316,40 @@ void rvWeaponStrongBox::PostSave ( void ) {
 ===============================================================================
 */
 
-CLASS_STATES_DECLARATION ( rvWeaponStrongBox )
-	STATE ( "Raise",						rvWeaponStrongBox::State_Raise )
-	STATE ( "Lower",						rvWeaponStrongBox::State_Lower )
-	STATE ( "Idle",							rvWeaponStrongBox::State_Idle)
-	STATE ( "Charge",						rvWeaponStrongBox::State_Charge )
-	STATE ( "Charged",						rvWeaponStrongBox::State_Charged )
-	STATE ( "Fire",							rvWeaponStrongBox::State_Fire )
-	STATE ( "Flashlight",					rvWeaponStrongBox::State_Flashlight )
+CLASS_STATES_DECLARATION ( rvWeaponRocketLauncher )
+	STATE ( "Idle",				rvWeaponRocketLauncher::State_Idle)
+	STATE ( "Fire",				rvWeaponRocketLauncher::State_Fire )
+	STATE ( "Raise",			rvWeaponRocketLauncher::State_Raise )
+	STATE ( "Lower",			rvWeaponRocketLauncher::State_Lower )
+
+	STATE ( "Rocket_Idle",		rvWeaponRocketLauncher::State_Rocket_Idle )
+	STATE ( "Rocket_Reload",	rvWeaponRocketLauncher::State_Rocket_Reload )
+	
+	STATE ( "AddToClip",		rvWeaponRocketLauncher::Frame_AddToClip )
 END_CLASS_STATES
+
 
 /*
 ================
-rvWeaponStrongBox::State_Raise
+rvWeaponRocketLauncher::State_Raise
+
+Raise the weapon
 ================
 */
-stateResult_t rvWeaponStrongBox::State_Raise( const stateParms_t& parms ) {
+stateResult_t rvWeaponRocketLauncher::State_Raise ( const stateParms_t& parms ) {
 	enum {
-		RAISE_INIT,
-		RAISE_WAIT,
+		STAGE_INIT,
+		STAGE_WAIT,
 	};	
 	switch ( parms.stage ) {
-		case RAISE_INIT:			
+		// Start the weapon raising
+		case STAGE_INIT:
 			SetStatus ( WP_RISING );
-			PlayAnim( ANIMCHANNEL_ALL, "raise", parms.blendFrames );
-			return SRESULT_STAGE(RAISE_WAIT);
+			PlayAnim( ANIMCHANNEL_LEGS, "raise", 0 );
+			return SRESULT_STAGE ( STAGE_WAIT );
 			
-		case RAISE_WAIT:
-			if ( AnimDone ( ANIMCHANNEL_ALL, 4 ) ) {
+		case STAGE_WAIT:
+			if ( AnimDone ( ANIMCHANNEL_LEGS, 4 ) ) {
 				SetState ( "Idle", 4 );
 				return SRESULT_DONE;
 			}
@@ -258,34 +359,36 @@ stateResult_t rvWeaponStrongBox::State_Raise( const stateParms_t& parms ) {
 			}
 			return SRESULT_WAIT;
 	}
-	return SRESULT_ERROR;	
+	return SRESULT_ERROR;
 }
 
 /*
 ================
-rvWeaponStrongBox::State_Lower
+rvWeaponRocketLauncher::State_Lower
+
+Lower the weapon
 ================
 */
-stateResult_t rvWeaponStrongBox::State_Lower ( const stateParms_t& parms ) {
+stateResult_t rvWeaponRocketLauncher::State_Lower ( const stateParms_t& parms ) {	
 	enum {
-		LOWER_INIT,
-		LOWER_WAIT,
-		LOWER_WAITRAISE
+		STAGE_INIT,
+		STAGE_WAIT,
+		STAGE_WAITRAISE
 	};	
 	switch ( parms.stage ) {
-		case LOWER_INIT:
+		case STAGE_INIT:
 			SetStatus ( WP_LOWERING );
-			PlayAnim( ANIMCHANNEL_ALL, "putaway", parms.blendFrames );
-			return SRESULT_STAGE(LOWER_WAIT);
+			PlayAnim ( ANIMCHANNEL_LEGS, "putaway", parms.blendFrames );
+			return SRESULT_STAGE(STAGE_WAIT);
 			
-		case LOWER_WAIT:
-			if ( AnimDone ( ANIMCHANNEL_ALL, 0 ) ) {
+		case STAGE_WAIT:
+			if ( AnimDone ( ANIMCHANNEL_LEGS, 0 ) ) {
 				SetStatus ( WP_HOLSTERED );
-				return SRESULT_STAGE(LOWER_WAITRAISE);
+				return SRESULT_STAGE(STAGE_WAITRAISE);
 			}
 			return SRESULT_WAIT;
-	
-		case LOWER_WAITRAISE:
+		
+		case STAGE_WAITRAISE:
 			if ( wsfl.raiseWeapon ) {
 				SetState ( "Raise", 0 );
 				return SRESULT_DONE;
@@ -297,30 +400,32 @@ stateResult_t rvWeaponStrongBox::State_Lower ( const stateParms_t& parms ) {
 
 /*
 ================
-rvWeaponStrongBox::State_Idle
+rvWeaponRocketLauncher::State_Idle
 ================
 */
-stateResult_t rvWeaponStrongBox::State_Idle ( const stateParms_t& parms ) {	
+stateResult_t rvWeaponRocketLauncher::State_Idle( const stateParms_t& parms ) {
 	enum {
-		IDLE_INIT,
-		IDLE_WAIT,
+		STAGE_INIT,
+		STAGE_WAIT,
 	};	
 	switch ( parms.stage ) {
-		case IDLE_INIT:			
-			SetStatus ( WP_READY );
-			PlayCycle( ANIMCHANNEL_ALL, "idle", parms.blendFrames );
-			return SRESULT_STAGE ( IDLE_WAIT );
-			
-		case IDLE_WAIT:
+		case STAGE_INIT:
+			if ( !AmmoAvailable ( ) ) {
+				SetStatus ( WP_OUTOFAMMO );
+			} else {
+				SetStatus ( WP_READY );
+			}
+		
+			PlayCycle( ANIMCHANNEL_LEGS, "idle", parms.blendFrames );
+			return SRESULT_STAGE ( STAGE_WAIT );
+		
+		case STAGE_WAIT:
 			if ( wsfl.lowerWeapon ) {
 				SetState ( "Lower", 4 );
 				return SRESULT_DONE;
-			}
-			
-			if ( UpdateFlashlight ( ) ) { 
-				return SRESULT_DONE;
-			}
-			if ( UpdateAttack ( ) ) {
+			}		
+			if ( gameLocal.time > nextAttackTime && wsfl.attack && ( gameLocal.isClient || AmmoInClip ( ) ) ) {
+				SetState ( "Fire", 2 );
 				return SRESULT_DONE;
 			}
 			return SRESULT_WAIT;
@@ -330,67 +435,30 @@ stateResult_t rvWeaponStrongBox::State_Idle ( const stateParms_t& parms ) {
 
 /*
 ================
-rvWeaponStrongBox::State_Charge
+rvWeaponRocketLauncher::State_Fire
 ================
 */
-stateResult_t rvWeaponStrongBox::State_Charge ( const stateParms_t& parms ) {
+stateResult_t rvWeaponRocketLauncher::State_Fire ( const stateParms_t& parms ) {
 	enum {
-		CHARGE_INIT,
-		CHARGE_WAIT,
+		STAGE_INIT,
+		STAGE_WAIT,
 	};	
 	switch ( parms.stage ) {
-		case CHARGE_INIT:
-			viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, chargeGlow[0] );
-			StartSound ( "snd_charge", SND_CHANNEL_ITEM, 0, false, NULL );
-			PlayCycle( ANIMCHANNEL_ALL, "charging", parms.blendFrames );
-			return SRESULT_STAGE ( CHARGE_WAIT );
-			
-		case CHARGE_WAIT:	
-			if ( gameLocal.time - fireHeldTime < chargeTime ) {
-				float f;
-				f = (float)(gameLocal.time - fireHeldTime) / (float)chargeTime;
-				f = chargeGlow[0] + f * (chargeGlow[1] - chargeGlow[0]);
-				f = idMath::ClampFloat ( chargeGlow[0], chargeGlow[1], f );
-				viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, f );
-				
-				if ( !wsfl.attack ) {
-					SetState ( "Fire", 0 );
-					return SRESULT_DONE;
-				}
-				
-				return SRESULT_WAIT;
-			} 
-			SetState ( "Charged", 4 );
-			return SRESULT_DONE;
-	}
-	return SRESULT_ERROR;	
-}
-
-/*
-================
-rvWeaponStrongBox::State_Charged
-================
-*/
-stateResult_t rvWeaponStrongBox::State_Charged ( const stateParms_t& parms ) {
-	enum {
-		CHARGED_INIT,
-		CHARGED_WAIT,
-	};	
-	switch ( parms.stage ) {
-		case CHARGED_INIT:		
-			viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, 1.0f  );
-
-			StopSound ( SND_CHANNEL_ITEM, false );
-			StartSound ( "snd_charge_loop", SND_CHANNEL_ITEM, 0, false, NULL );
-			StartSound ( "snd_charge_click", SND_CHANNEL_BODY, 0, false, NULL );
-			return SRESULT_STAGE(CHARGED_WAIT);
-			
-		case CHARGED_WAIT:
-			if ( !wsfl.attack ) {
-				fireForced = true;
+		case STAGE_INIT:
+			nextAttackTime = gameLocal.time + (fireRate * owner->PowerUpModifier ( PMOD_FIRERATE ));		
+			Attack ( false, 1, spread, 0, 1.0f );
+			PlayAnim ( ANIMCHANNEL_LEGS, "fire", parms.blendFrames );	
+			return SRESULT_STAGE ( STAGE_WAIT );
+	
+		case STAGE_WAIT:			
+			if ( wsfl.attack && gameLocal.time >= nextAttackTime && ( gameLocal.isClient || AmmoInClip ( ) ) && !wsfl.lowerWeapon ) {
 				SetState ( "Fire", 0 );
 				return SRESULT_DONE;
 			}
+			if ( gameLocal.time > nextAttackTime && AnimDone ( ANIMCHANNEL_LEGS, 4 ) ) {
+				SetState ( "Idle", 4 );
+				return SRESULT_DONE;
+			}
 			return SRESULT_WAIT;
 	}
 	return SRESULT_ERROR;
@@ -398,95 +466,118 @@ stateResult_t rvWeaponStrongBox::State_Charged ( const stateParms_t& parms ) {
 
 /*
 ================
-rvWeaponStrongBox::State_Fire
+rvWeaponRocketLauncher::State_Rocket_Idle
 ================
 */
-stateResult_t rvWeaponStrongBox::State_Fire ( const stateParms_t& parms ) {
+stateResult_t rvWeaponRocketLauncher::State_Rocket_Idle ( const stateParms_t& parms ) {
 	enum {
-		FIRE_INIT,
-		FIRE_WAIT,
+		STAGE_INIT,
+		STAGE_WAIT,
+		STAGE_WAITEMPTY,
 	};	
-	switch ( parms.stage ) {
-		case FIRE_INIT:	
-
-			StopSound ( SND_CHANNEL_ITEM, false );
-			viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, 0 );
-			//don't fire if we're targeting a gui.
-			idPlayer* player;
-			player = gameLocal.GetLocalPlayer();
-
-			//make sure the player isn't looking at a gui first
-			if( player && player->GuiActive() )	{
-				fireHeldTime = 0;
-				SetState ( "Lower", 0 );
-				return SRESULT_DONE;
-			}
-
-			if( player && !player->CanFire() )	{
-				fireHeldTime = 0;
-				SetState ( "Idle", 4 );
-				return SRESULT_DONE;
-			}
-
-
 	
-			if ( gameLocal.time - fireHeldTime > chargeTime ) {	
-				Attack ( true, 8, 8, 0, 1.0f );
-				PlayEffect ( "fx_chargedflash", barrelJointView, false );
-				PlayAnim( ANIMCHANNEL_ALL, "chargedfire", parms.blendFrames );
-			} else {
-				Attack ( true, 8, 8, 0, 1.0f );
-				PlayEffect ( "fx_normalflash", barrelJointView, false );
-				PlayAnim( ANIMCHANNEL_ALL, "fire", parms.blendFrames );
+	switch ( parms.stage ) {
+		case STAGE_INIT:
+			if ( AmmoAvailable ( ) <= AmmoInClip() ) {
+				PlayAnim( ANIMCHANNEL_TORSO, "idle_empty", parms.blendFrames );
+				idleEmpty = true;
+			} else { 
+				PlayAnim( ANIMCHANNEL_TORSO, "idle", parms.blendFrames );
 			}
-			fireHeldTime = 0;
-			
-			return SRESULT_STAGE(FIRE_WAIT);
+			return SRESULT_STAGE ( STAGE_WAIT );
 		
-		case FIRE_WAIT:
-			if ( AnimDone ( ANIMCHANNEL_ALL, 4 ) ) {
-				SetState ( "Idle", 4 );
-				return SRESULT_DONE;
-			}
-			if ( UpdateFlashlight ( ) || UpdateAttack ( ) ) {
-				return SRESULT_DONE;
+		case STAGE_WAIT:
+			if ( AmmoAvailable ( ) > AmmoInClip() ) {
+				if ( idleEmpty ) {
+					SetRocketState ( "Rocket_Reload", 0 );
+					return SRESULT_DONE;
+				} else if ( ClipSize ( ) > 1 ) {
+					if ( gameLocal.time > nextAttackTime && AmmoInClip ( ) < ClipSize( ) ) {
+						if ( !AmmoInClip() || !wsfl.attack ) {
+							SetRocketState ( "Rocket_Reload", 0 );
+							return SRESULT_DONE;
+						}
+					}
+				} else {
+					if ( AmmoInClip ( ) == 0 ) {
+						SetRocketState ( "Rocket_Reload", 0 );
+						return SRESULT_DONE;
+					}				
+				}
 			}
 			return SRESULT_WAIT;
-	}			
+	}
 	return SRESULT_ERROR;
 }
 
 /*
 ================
-rvWeaponStrongBox::State_Flashlight
+rvWeaponRocketLauncher::State_Rocket_Reload
 ================
 */
-stateResult_t rvWeaponStrongBox::State_Flashlight ( const stateParms_t& parms ) {
+stateResult_t rvWeaponRocketLauncher::State_Rocket_Reload ( const stateParms_t& parms ) {
 	enum {
-		FLASHLIGHT_INIT,
-		FLASHLIGHT_WAIT,
+		STAGE_INIT,
+		STAGE_WAIT,
 	};	
+	
 	switch ( parms.stage ) {
-		case FLASHLIGHT_INIT:			
-			SetStatus ( WP_FLASHLIGHT );
-			// Wait for the flashlight anim to play		
-			PlayAnim( ANIMCHANNEL_ALL, "flashlight", 0 );
-			return SRESULT_STAGE ( FLASHLIGHT_WAIT );
-			
-		case FLASHLIGHT_WAIT:
-			if ( !AnimDone ( ANIMCHANNEL_ALL, 4 ) ) {
-				return SRESULT_WAIT;
-			}
-			
-			if ( owner->IsFlashlightOn() ) {
-				Flashlight ( false );
+		case STAGE_INIT: {
+			const char* animName;
+			int			animNum;
+
+			if ( idleEmpty ) {
+				animName = "ammo_pickup";
+				idleEmpty = false;
+			} else if ( AmmoAvailable ( ) == AmmoInClip( ) + 1 ) {
+				animName = "reload_empty";
 			} else {
-				Flashlight ( true );
+				animName = "reload";
 			}
 			
-			SetState ( "Idle", 4 );
-			return SRESULT_DONE;
+			animNum = viewModel->GetAnimator()->GetAnim ( animName );
+			if ( animNum ) {
+				idAnim* anim;
+				anim = (idAnim*)viewModel->GetAnimator()->GetAnim ( animNum );				
+				anim->SetPlaybackRate ( (float)anim->Length() / (reloadRate * owner->PowerUpModifier ( PMOD_FIRERATE )) );
+			}
+
+			PlayAnim( ANIMCHANNEL_TORSO, animName, parms.blendFrames );				
+
+			return SRESULT_STAGE ( STAGE_WAIT );
+		}
+		
+		case STAGE_WAIT:
+			if ( AnimDone ( ANIMCHANNEL_TORSO, 0 ) ) {				
+				if ( !wsfl.attack && gameLocal.time > nextAttackTime && AmmoInClip ( ) < ClipSize( ) && AmmoAvailable() > AmmoInClip() ) {
+					SetRocketState ( "Rocket_Reload", 0 );
+				} else {
+					SetRocketState ( "Rocket_Idle", 0 );
+				}
+				return SRESULT_DONE;
+			}
+			/*
+			if ( gameLocal.isMultiplayer && gameLocal.time > nextAttackTime && wsfl.attack ) {
+				if ( AmmoInClip ( ) == 0 )
+				{
+					AddToClip ( ClipSize() );
+				}
+				SetRocketState ( "Rocket_Idle", 0 );
+				return SRESULT_DONE;
+			}
+			*/
+			return SRESULT_WAIT;
 	}
 	return SRESULT_ERROR;
 }
-		
+
+/*
+================
+rvWeaponRocketLauncher::Frame_AddToClip
+================
+*/
+stateResult_t rvWeaponRocketLauncher::Frame_AddToClip ( const stateParms_t& parms ) {
+	AddToClip ( 1 );
+	return SRESULT_OK;
+}
+

@@ -6,12 +6,12 @@
 
 #define BLASTER_SPARM_CHARGEGLOW		6
 
-class rvWeaponPussBox : public rvWeapon {
+class rvWeaponBlaster : public rvWeapon {
 public:
 
-	CLASS_PROTOTYPE( rvWeaponPussBox );
+	CLASS_PROTOTYPE( rvWeaponBlaster );
 
-	rvWeaponPussBox ( void );
+	rvWeaponBlaster ( void );
 
 	virtual void		Spawn				( void );
 	void				Save				( idSaveGame *savefile ) const;
@@ -41,26 +41,26 @@ private:
 	stateResult_t		State_Fire				( const stateParms_t& parms );
 	stateResult_t		State_Flashlight		( const stateParms_t& parms );
 	
-	CLASS_STATES_PROTOTYPE ( rvWeaponPussBox );
+	CLASS_STATES_PROTOTYPE ( rvWeaponBlaster );
 };
 
-CLASS_DECLARATION( rvWeapon, rvWeaponPussBox )
+CLASS_DECLARATION( rvWeapon, rvWeaponBlaster )
 END_CLASS
 
 /*
 ================
-rvWeaponPussBox::rvWeaponPussBox
+rvWeaponBlaster::rvWeaponBlaster
 ================
 */
-rvWeaponPussBox::rvWeaponPussBox ( void ) {
+rvWeaponBlaster::rvWeaponBlaster ( void ) {
 }
 
 /*
 ================
-rvWeaponPussBox::UpdateFlashlight
+rvWeaponBlaster::UpdateFlashlight
 ================
 */
-bool rvWeaponPussBox::UpdateFlashlight ( void ) {
+bool rvWeaponBlaster::UpdateFlashlight ( void ) {
 	if ( !wsfl.flashlight ) {
 		return false;
 	}
@@ -71,10 +71,10 @@ bool rvWeaponPussBox::UpdateFlashlight ( void ) {
 
 /*
 ================
-rvWeaponPussBox::Flashlight
+rvWeaponBlaster::Flashlight
 ================
 */
-void rvWeaponPussBox::Flashlight ( bool on ) {
+void rvWeaponBlaster::Flashlight ( bool on ) {
 	owner->Flashlight ( on );
 	
 	if ( on ) {
@@ -88,10 +88,10 @@ void rvWeaponPussBox::Flashlight ( bool on ) {
 
 /*
 ================
-rvWeaponPussBox::UpdateAttack
+rvWeaponBlaster::UpdateAttack
 ================
 */
-bool rvWeaponPussBox::UpdateAttack ( void ) {
+bool rvWeaponBlaster::UpdateAttack ( void ) {
 	// Clear fire forced
 	if ( fireForced ) {
 		if ( !wsfl.attack ) {
@@ -103,18 +103,14 @@ bool rvWeaponPussBox::UpdateAttack ( void ) {
 
 	// If the player is pressing the fire button and they have enough ammo for a shot
 	// then start the shooting process.
-	if (manaAvailable())
-	//if (AmmoAvailable())
-	{
-		if ( wsfl.attack && gameLocal.time >= nextAttackTime ) {
-			// Save the time which the fire button was pressed
-			if ( fireHeldTime == 0 ) {		
-				nextAttackTime = gameLocal.time + (fireRate * owner->PowerUpModifier ( PMOD_FIRERATE ));
-				fireHeldTime   = gameLocal.time;
-				viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, chargeGlow[0] );
-			}
-		}		
-	}
+	if ( wsfl.attack && gameLocal.time >= nextAttackTime ) {
+		// Save the time which the fire button was pressed
+		if ( fireHeldTime == 0 ) {		
+			nextAttackTime = gameLocal.time + (fireRate * owner->PowerUpModifier ( PMOD_FIRERATE ));
+			fireHeldTime   = gameLocal.time;
+			viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, chargeGlow[0] );
+		}
+	}		
 
 	// If they have the charge mod and they have overcome the initial charge 
 	// delay then transition to the charge state.
@@ -146,10 +142,10 @@ bool rvWeaponPussBox::UpdateAttack ( void ) {
 
 /*
 ================
-rvWeaponPussBox::Spawn
+rvWeaponBlaster::Spawn
 ================
 */
-void rvWeaponPussBox::Spawn ( void ) {
+void rvWeaponBlaster::Spawn ( void ) {
 	viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, 0 );
 	SetState ( "Raise", 0 );
 	
@@ -165,10 +161,10 @@ void rvWeaponPussBox::Spawn ( void ) {
 
 /*
 ================
-rvWeaponPussBox::Save
+rvWeaponBlaster::Save
 ================
 */
-void rvWeaponPussBox::Save ( idSaveGame *savefile ) const {
+void rvWeaponBlaster::Save ( idSaveGame *savefile ) const {
 	savefile->WriteInt ( chargeTime );
 	savefile->WriteInt ( chargeDelay );
 	savefile->WriteVec2 ( chargeGlow );
@@ -178,10 +174,10 @@ void rvWeaponPussBox::Save ( idSaveGame *savefile ) const {
 
 /*
 ================
-rvWeaponPussBox::Restore
+rvWeaponBlaster::Restore
 ================
 */
-void rvWeaponPussBox::Restore ( idRestoreGame *savefile ) {
+void rvWeaponBlaster::Restore ( idRestoreGame *savefile ) {
 	savefile->ReadInt ( chargeTime );
 	savefile->ReadInt ( chargeDelay );
 	savefile->ReadVec2 ( chargeGlow );
@@ -191,10 +187,10 @@ void rvWeaponPussBox::Restore ( idRestoreGame *savefile ) {
 
 /*
 ================
-rvWeaponPussBox::PreSave
+rvWeaponBlaster::PreSave
 ================
 */
-void rvWeaponPussBox::PreSave ( void ) {
+void rvWeaponBlaster::PreSave ( void ) {
 
 	SetState ( "Idle", 4 );
 
@@ -207,10 +203,10 @@ void rvWeaponPussBox::PreSave ( void ) {
 
 /*
 ================
-rvWeaponPussBox::PostSave
+rvWeaponBlaster::PostSave
 ================
 */
-void rvWeaponPussBox::PostSave ( void ) {
+void rvWeaponBlaster::PostSave ( void ) {
 }
 
 /*
@@ -221,22 +217,22 @@ void rvWeaponPussBox::PostSave ( void ) {
 ===============================================================================
 */
 
-CLASS_STATES_DECLARATION ( rvWeaponPussBox )
-	STATE ( "Raise",						rvWeaponPussBox::State_Raise )
-	STATE ( "Lower",						rvWeaponPussBox::State_Lower )
-	STATE ( "Idle",							rvWeaponPussBox::State_Idle)
-	STATE ( "Charge",						rvWeaponPussBox::State_Charge )
-	STATE ( "Charged",						rvWeaponPussBox::State_Charged )
-	STATE ( "Fire",							rvWeaponPussBox::State_Fire )
-	STATE ( "Flashlight",					rvWeaponPussBox::State_Flashlight )
+CLASS_STATES_DECLARATION ( rvWeaponBlaster )
+	STATE ( "Raise",						rvWeaponBlaster::State_Raise )
+	STATE ( "Lower",						rvWeaponBlaster::State_Lower )
+	STATE ( "Idle",							rvWeaponBlaster::State_Idle)
+	STATE ( "Charge",						rvWeaponBlaster::State_Charge )
+	STATE ( "Charged",						rvWeaponBlaster::State_Charged )
+	STATE ( "Fire",							rvWeaponBlaster::State_Fire )
+	STATE ( "Flashlight",					rvWeaponBlaster::State_Flashlight )
 END_CLASS_STATES
 
 /*
 ================
-rvWeaponPussBox::State_Raise
+rvWeaponBlaster::State_Raise
 ================
 */
-stateResult_t rvWeaponPussBox::State_Raise( const stateParms_t& parms ) {
+stateResult_t rvWeaponBlaster::State_Raise( const stateParms_t& parms ) {
 	enum {
 		RAISE_INIT,
 		RAISE_WAIT,
@@ -263,10 +259,10 @@ stateResult_t rvWeaponPussBox::State_Raise( const stateParms_t& parms ) {
 
 /*
 ================
-rvWeaponPussBox::State_Lower
+rvWeaponBlaster::State_Lower
 ================
 */
-stateResult_t rvWeaponPussBox::State_Lower ( const stateParms_t& parms ) {
+stateResult_t rvWeaponBlaster::State_Lower ( const stateParms_t& parms ) {
 	enum {
 		LOWER_INIT,
 		LOWER_WAIT,
@@ -297,10 +293,10 @@ stateResult_t rvWeaponPussBox::State_Lower ( const stateParms_t& parms ) {
 
 /*
 ================
-rvWeaponPussBox::State_Idle
+rvWeaponBlaster::State_Idle
 ================
 */
-stateResult_t rvWeaponPussBox::State_Idle ( const stateParms_t& parms ) {	
+stateResult_t rvWeaponBlaster::State_Idle ( const stateParms_t& parms ) {	
 	enum {
 		IDLE_INIT,
 		IDLE_WAIT,
@@ -330,10 +326,10 @@ stateResult_t rvWeaponPussBox::State_Idle ( const stateParms_t& parms ) {
 
 /*
 ================
-rvWeaponPussBox::State_Charge
+rvWeaponBlaster::State_Charge
 ================
 */
-stateResult_t rvWeaponPussBox::State_Charge ( const stateParms_t& parms ) {
+stateResult_t rvWeaponBlaster::State_Charge ( const stateParms_t& parms ) {
 	enum {
 		CHARGE_INIT,
 		CHARGE_WAIT,
@@ -368,10 +364,10 @@ stateResult_t rvWeaponPussBox::State_Charge ( const stateParms_t& parms ) {
 
 /*
 ================
-rvWeaponPussBox::State_Charged
+rvWeaponBlaster::State_Charged
 ================
 */
-stateResult_t rvWeaponPussBox::State_Charged ( const stateParms_t& parms ) {
+stateResult_t rvWeaponBlaster::State_Charged ( const stateParms_t& parms ) {
 	enum {
 		CHARGED_INIT,
 		CHARGED_WAIT,
@@ -398,10 +394,10 @@ stateResult_t rvWeaponPussBox::State_Charged ( const stateParms_t& parms ) {
 
 /*
 ================
-rvWeaponPussBox::State_Fire
+rvWeaponBlaster::State_Fire
 ================
 */
-stateResult_t rvWeaponPussBox::State_Fire ( const stateParms_t& parms ) {
+stateResult_t rvWeaponBlaster::State_Fire ( const stateParms_t& parms ) {
 	enum {
 		FIRE_INIT,
 		FIRE_WAIT,
@@ -435,7 +431,7 @@ stateResult_t rvWeaponPussBox::State_Fire ( const stateParms_t& parms ) {
 				PlayEffect ( "fx_chargedflash", barrelJointView, false );
 				PlayAnim( ANIMCHANNEL_ALL, "chargedfire", parms.blendFrames );
 			} else {
-				Attack ( true, 1, spread, 0, 1.0f );
+				Attack ( false, 1, spread, 0, 1.0f );
 				PlayEffect ( "fx_normalflash", barrelJointView, false );
 				PlayAnim( ANIMCHANNEL_ALL, "fire", parms.blendFrames );
 			}
@@ -458,10 +454,10 @@ stateResult_t rvWeaponPussBox::State_Fire ( const stateParms_t& parms ) {
 
 /*
 ================
-rvWeaponPussBox::State_Flashlight
+rvWeaponBlaster::State_Flashlight
 ================
 */
-stateResult_t rvWeaponPussBox::State_Flashlight ( const stateParms_t& parms ) {
+stateResult_t rvWeaponBlaster::State_Flashlight ( const stateParms_t& parms ) {
 	enum {
 		FLASHLIGHT_INIT,
 		FLASHLIGHT_WAIT,

@@ -1328,7 +1328,7 @@ void idClass::RegisterClasses( void )
 	REGISTER(rvClientMoveable); // ..\..\code\game\client\ClientMoveable.cpp
 	REGISTER(rvClientPhysics); // ..\..\code\game\client\ClientEntity.cpp
 	REGISTER(rvConveyor); // ..\..\code\game\Mover.cpp
-	//REGISTER(rvDarkMatterProjectile); // ..\..\code\game\weapon\WeaponDarkMatterGun.cpp
+	REGISTER(rvDarkMatterProjectile); // ..\..\code\game\weapon\WeaponDarkMatterGun.cpp
 	REGISTER(rvDebugJumpPoint); // ..\..\code\game\Misc.cpp
 	REGISTER(rvDriftingProjectile); // ..\..\code\game\Projectile.cpp
 	REGISTER(rvEffect); // ..\..\code\game\Effect.cpp
@@ -1412,6 +1412,17 @@ void idClass::RegisterClasses( void )
 	REGISTER(rvVehicleWeapon); // ..\..\code\game\vehicle\VehicleParts.cpp
 	REGISTER(rvViewWeapon); // ..\..\code\game\Weapon.cpp
 	REGISTER(rvWeapon); // ..\..\code\game\Weapon.cpp
+	REGISTER(rvWeaponBlaster); // ..\..\code\game\weapon\WeaponBlaster.cpp
+	REGISTER(rvWeaponDarkMatterGun); // ..\..\code\game\weapon\WeaponDarkMatterGun.cpp
+	REGISTER(rvWeaponGauntlet); // ..\..\code\game\weapon\WeaponGauntlet.cpp
+	REGISTER(rvWeaponGrenadeLauncher); // ..\..\code\game\weapon\WeaponGrenadeLauncher.cpp
+	REGISTER(rvWeaponHyperblaster); // ..\..\code\game\weapon\WeaponHyperblaster.cpp
+	REGISTER(rvWeaponLightningGun); // ..\..\code\game\weapon\WeaponLightningGun.cpp
+	REGISTER(rvWeaponMachinegun); // ..\..\code\game\weapon\WeaponMachinegun.cpp
+	REGISTER(rvWeaponNailgun); // ..\..\code\game\weapon\WeaponNailgun.cpp
+	REGISTER(rvWeaponRailgun); // ..\..\code\game\weapon\WeaponRailgun.cpp
+	REGISTER(rvWeaponRocketLauncher); // ..\..\code\game\weapon\WeaponRocketLauncher.cpp
+	REGISTER(rvWeaponShotgun); // ..\..\code\game\weapon\WeaponShotgun.cpp
 	REGISTER(rvWeaponPussBox); // ..\..\code\game\weapon\WeaponBlaster.cpp
 	REGISTER(rvWeaponUnfathomableBox); // ..\..\code\game\weapon\WeaponDarkMatterGun.cpp
 	REGISTER(rvWeaponGauntlet); // ..\..\code\game\weapon\WeaponGauntlet.cpp

@@ -3,214 +3,230 @@
 
 #include "../Game_local.h"
 #include "../Weapon.h"
+#include "../Projectile.h"
 
-#define BLASTER_SPARM_CHARGEGLOW		6
-
-class rvWeaponUnfathomableBox : public rvWeapon {
+class rvWeaponDarkMatterGun : public rvWeapon {
 public:
 
-	CLASS_PROTOTYPE( rvWeaponUnfathomableBox );
+	CLASS_PROTOTYPE( rvWeaponDarkMatterGun );
 
-	rvWeaponUnfathomableBox ( void );
+	rvWeaponDarkMatterGun ( void );
+	~rvWeaponDarkMatterGun ( void );
 
-	virtual void		Spawn				( void );
-	void				Save				( idSaveGame *savefile ) const;
-	void				Restore				( idRestoreGame *savefile );
-	void				PreSave		( void );
-	void				PostSave	( void );
+	virtual void			Spawn				( void );
+	void					Save				( idSaveGame *savefile ) const;
+	void					Restore				( idRestoreGame *savefile );
+	void					PreSave					( void );
+	void					PostSave				( void );
+
+#ifdef _XENON
+	virtual bool		AllowAutoAim			( void ) const { return false; }
+#endif
 
 protected:
 
-	bool				UpdateAttack		( void );
-	bool				UpdateFlashlight	( void );
-	void				Flashlight			( bool on );
+	enum darkMatterRing_t {
+		RING_OUTER,
+		RING_MIDDLE,
+		RING_INNER,
+		RING_MAX
+	};
+
+	struct rings_s {
+		idAngles		angularVelocity;
+		jointHandle_t	joint;
+	};
+	rings_s				rings[ RING_MAX ];
+
+	int					nextRotateTime;
+	int					ringStartTime;
+	int					chargeDuration;
+	bool				clientReload;
+	rvClientEffectPtr	coreEffect;
+	rvClientEffectPtr	coreStartEffect;
+	jointHandle_t		jointCore;
+
+	void				InitRing		( darkMatterRing_t ring, const char* name );
+	void				StartRings		( bool chargeUp );
+	void				StopRings		( void );
 
 private:
 
-	int					chargeTime;
-	int					chargeDelay;
-	idVec2				chargeGlow;
-	bool				fireForced;
-	int					fireHeldTime;
-
-	stateResult_t		State_Raise				( const stateParms_t& parms );
-	stateResult_t		State_Lower				( const stateParms_t& parms );
-	stateResult_t		State_Idle				( const stateParms_t& parms );
-	stateResult_t		State_Charge			( const stateParms_t& parms );
-	stateResult_t		State_Charged			( const stateParms_t& parms );
-	stateResult_t		State_Fire				( const stateParms_t& parms );
-	stateResult_t		State_Flashlight		( const stateParms_t& parms );
+	stateResult_t		State_Idle		( const stateParms_t& parms );
+	stateResult_t		State_Fire		( const stateParms_t& parms );
+	stateResult_t		State_Reload	( const stateParms_t& parms );
 	
-	CLASS_STATES_PROTOTYPE ( rvWeaponUnfathomableBox );
+	CLASS_STATES_PROTOTYPE ( rvWeaponDarkMatterGun );
 };
 
-CLASS_DECLARATION( rvWeapon, rvWeaponUnfathomableBox )
+CLASS_DECLARATION( rvWeapon, rvWeaponDarkMatterGun )
 END_CLASS
 
 /*
 ================
-rvWeaponUnfathomableBox::rvWeaponUnfathomableBox
+rvWeaponDarkMatterGun::rvWeaponDarkMatterGun
 ================
 */
-rvWeaponUnfathomableBox::rvWeaponUnfathomableBox ( void ) {
+rvWeaponDarkMatterGun::rvWeaponDarkMatterGun ( void ) {
+	coreStartEffect = NULL;
+	coreEffect		= NULL;
+	ringStartTime	= -1;
+	clientReload	= false;
 }
 
 /*
 ================
-rvWeaponUnfathomableBox::UpdateFlashlight
+rvWeaponDarkMatterGun::~rvWeaponDarkMatterGun
 ================
 */
-bool rvWeaponUnfathomableBox::UpdateFlashlight ( void ) {
-	if ( !wsfl.flashlight ) {
-		return false;
+rvWeaponDarkMatterGun::~rvWeaponDarkMatterGun ( void ) {
+	StopRings ( );
+}
+
+/*
+================
+rvWeaponDarkMatterGun::Spawn
+================
+*/
+void rvWeaponDarkMatterGun::Spawn ( void ) {
+	SetState ( "Raise", 0 );	
+	
+	InitRing ( RING_OUTER, "outer" );
+	InitRing ( RING_INNER, "inner" );
+	InitRing ( RING_MIDDLE, "middle" );
+	
+	nextRotateTime = 0;
+	
+	chargeDuration = SEC2MS ( spawnArgs.GetFloat ( "chargeDuration", ".5" ) );
+	
+	jointCore = viewModel->GetAnimator()->GetJointHandle ( spawnArgs.GetString ( "joint_core" ) );
+}
+
+/*
+================
+rvWeaponDarkMatterGun::Save
+================
+*/
+void rvWeaponDarkMatterGun::Save ( idSaveGame *savefile ) const {
+	for ( int i = 0; i < RING_MAX; i++ ) {
+		savefile->WriteAngles ( rings[ i ].angularVelocity );
+		savefile->WriteJoint ( rings[ i ].joint );
+	}
+	savefile->WriteInt ( nextRotateTime );
+	savefile->WriteInt ( ringStartTime );
+	savefile->WriteInt ( chargeDuration );
+	savefile->WriteObject( coreEffect.GetEntity() );
+	savefile->WriteObject( coreStartEffect.GetEntity() );
+	savefile->WriteJoint ( jointCore );
+}
+
+/*
+================
+rvWeaponDarkMatterGun::Restore
+================
+*/
+void rvWeaponDarkMatterGun::Restore ( idRestoreGame *savefile ) {
+	for ( int i = 0; i < RING_MAX; i++ ) {
+		savefile->ReadAngles ( rings[ i ].angularVelocity );
+		savefile->ReadJoint ( rings[ i ].joint );
+	}
+	savefile->ReadInt ( nextRotateTime );
+	savefile->ReadInt ( ringStartTime );
+	savefile->ReadInt ( chargeDuration );
+	savefile->ReadObject( reinterpret_cast<idClass*&>( coreEffect ) );
+	savefile->ReadObject( reinterpret_cast<idClass*&>( coreStartEffect ) );
+	savefile->ReadJoint ( jointCore );
+}
+
+/*
+================
+rvWeaponDarkMatterGun::PreSave
+================
+*/
+void rvWeaponDarkMatterGun::PreSave ( void ) {
+
+	//disable sounds
+	StopSound( SND_CHANNEL_ANY, false);
+
+}
+
+/*
+================
+rvWeaponDarkMatterGun::PostSave
+================
+*/
+void rvWeaponDarkMatterGun::PostSave ( void ) {
+
+	//start the ring sounds
+	StartSound ( "snd_rings", SND_CHANNEL_VOICE, 0, false, NULL );		
+}
+
+
+/*
+================
+rvWeaponDarkMatterGun::InitRing
+================
+*/
+void rvWeaponDarkMatterGun::InitRing ( darkMatterRing_t ring, const char* name ) {
+	rings[ring].angularVelocity = spawnArgs.GetAngles ( va("ring_%s_velocity", name ) );
+	rings[ring].joint = viewModel->GetAnimator()->GetJointHandle ( spawnArgs.GetString ( va("ring_%s_joint", name ) ) );
+}
+
+/*
+================
+rvWeaponDarkMatterGun::StartRings
+================
+*/
+void rvWeaponDarkMatterGun::StartRings ( bool chargeUp ) {
+	int i;
+	
+	if ( ringStartTime == -1 ) {	
+		StartSound ( "snd_rings", SND_CHANNEL_VOICE, 0, false, NULL );		
+		ringStartTime = gameLocal.time;		
 	}
 	
-	SetState ( "Flashlight", 0 );
-	return true;		
-}
-
-/*
-================
-rvWeaponUnfathomableBox::Flashlight
-================
-*/
-void rvWeaponUnfathomableBox::Flashlight ( bool on ) {
-	owner->Flashlight ( on );
-	
-	if ( on ) {
-		worldModel->ShowSurface ( "models/weapons/blaster/flare" );
-		viewModel->ShowSurface ( "models/weapons/blaster/flare" );
-	} else {
-		worldModel->HideSurface ( "models/weapons/blaster/flare" );
-		viewModel->HideSurface ( "models/weapons/blaster/flare" );
-	}
-}
-
-/*
-================
-rvWeaponUnfathomableBox::UpdateAttack
-================
-*/
-bool rvWeaponUnfathomableBox::UpdateAttack ( void ) {
-	// Clear fire forced
-	if ( fireForced ) {
-		if ( !wsfl.attack ) {
-			fireForced = false;
-		} else {
-			return false;
-		}
-	}
-
-	// If the player is pressing the fire button and they have enough ammo for a shot
-	// then start the shooting process.
-	if (manaAvailable())
-	//if (AmmoAvailable())
-	{
-		if ( wsfl.attack && gameLocal.time >= nextAttackTime ) {
-			// Save the time which the fire button was pressed
-			if ( fireHeldTime == 0 ) {		
-				nextAttackTime = gameLocal.time + (fireRate * owner->PowerUpModifier ( PMOD_FIRERATE ));
-				fireHeldTime   = gameLocal.time;
-				viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, chargeGlow[0] );
-			}
+	if ( chargeUp ) {	
+		coreStartEffect = viewModel->PlayEffect( "fx_core_start", jointCore );	
+		for ( i = 0; i < RING_MAX; i ++ ) {
+			viewModel->GetAnimator()->SetJointAngularVelocity ( rings[i].joint, rings[i].angularVelocity, gameLocal.time, chargeDuration / 2 );
 		}		
-	}
-
-	// If they have the charge mod and they have overcome the initial charge 
-	// delay then transition to the charge state.
-	if ( fireHeldTime != 0 ) {
-		if ( gameLocal.time - fireHeldTime > chargeDelay ) {
-			SetState ( "Charge", 4 );
-			return true;
-		}
-
-		// If the fire button was let go but was pressed at one point then 
-		// release the shot.
-		if ( !wsfl.attack ) {
-			idPlayer * player = gameLocal.GetLocalPlayer();
-			if( player )	{
-			
-				if( player->GuiActive())	{
-					//make sure the player isn't looking at a gui first
-					SetState ( "Lower", 0 );
-				} else {
-					SetState ( "Fire", 0 );
-				}
-			}
-			return true;
+	} else if ( !coreEffect ) {
+		coreEffect = viewModel->PlayEffect( "fx_core", jointCore, true );	
+		for ( i = 0; i < RING_MAX; i ++ ) {
+			viewModel->GetAnimator()->SetJointAngularVelocity ( rings[i].joint, rings[i].angularVelocity, gameLocal.time, 0 );
 		}
 	}
+}
+
+/*
+================
+rvWeaponDarkMatterGun::StopRings
+================
+*/
+void rvWeaponDarkMatterGun::StopRings ( void ) {
+	int i;
 	
-	return false;
-}
-
-/*
-================
-rvWeaponUnfathomableBox::Spawn
-================
-*/
-void rvWeaponUnfathomableBox::Spawn ( void ) {
-	viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, 0 );
-	SetState ( "Raise", 0 );
+	if ( !viewModel ) {
+		return;
+	}
 	
-	chargeGlow   = spawnArgs.GetVec2 ( "chargeGlow" );
-	chargeTime   = SEC2MS ( spawnArgs.GetFloat ( "chargeTime" ) );
-	chargeDelay  = SEC2MS ( spawnArgs.GetFloat ( "chargeDelay" ) );
-
-	fireHeldTime		= 0;
-	fireForced			= false;
-			
-	Flashlight ( owner->IsFlashlightOn() );
-}
-
-/*
-================
-rvWeaponUnfathomableBox::Save
-================
-*/
-void rvWeaponUnfathomableBox::Save ( idSaveGame *savefile ) const {
-	savefile->WriteInt ( chargeTime );
-	savefile->WriteInt ( chargeDelay );
-	savefile->WriteVec2 ( chargeGlow );
-	savefile->WriteBool ( fireForced );
-	savefile->WriteInt ( fireHeldTime );
-}
-
-/*
-================
-rvWeaponUnfathomableBox::Restore
-================
-*/
-void rvWeaponUnfathomableBox::Restore ( idRestoreGame *savefile ) {
-	savefile->ReadInt ( chargeTime );
-	savefile->ReadInt ( chargeDelay );
-	savefile->ReadVec2 ( chargeGlow );
-	savefile->ReadBool ( fireForced );
-	savefile->ReadInt ( fireHeldTime );
-}
-
-/*
-================
-rvWeaponUnfathomableBox::PreSave
-================
-*/
-void rvWeaponUnfathomableBox::PreSave ( void ) {
-
-	SetState ( "Idle", 4 );
-
-	StopSound( SND_CHANNEL_WEAPON, 0);
-	StopSound( SND_CHANNEL_BODY, 0);
-	StopSound( SND_CHANNEL_ITEM, 0);
-	StopSound( SND_CHANNEL_ANY, false );
+	viewModel->StopSound ( SND_CHANNEL_VOICE, false );
 	
-}
-
-/*
-================
-rvWeaponUnfathomableBox::PostSave
-================
-*/
-void rvWeaponUnfathomableBox::PostSave ( void ) {
+	if ( coreEffect ) {
+		coreEffect->Stop ( );
+		coreEffect = NULL;
+	}
+	
+	if ( coreStartEffect ) {
+		coreStartEffect->Stop ( );
+		coreStartEffect = NULL;
+	}
+	
+	for ( i = 0; i < RING_MAX; i ++ ) {
+		viewModel->GetAnimator()->ClearJoint ( rings[i].joint );
+	}
+	
+	ringStartTime  = -1;
 }
 
 /*
@@ -221,176 +237,63 @@ void rvWeaponUnfathomableBox::PostSave ( void ) {
 ===============================================================================
 */
 
-CLASS_STATES_DECLARATION ( rvWeaponUnfathomableBox )
-	STATE ( "Raise",						rvWeaponUnfathomableBox::State_Raise )
-	STATE ( "Lower",						rvWeaponUnfathomableBox::State_Lower )
-	STATE ( "Idle",							rvWeaponUnfathomableBox::State_Idle)
-	STATE ( "Charge",						rvWeaponUnfathomableBox::State_Charge )
-	STATE ( "Charged",						rvWeaponUnfathomableBox::State_Charged )
-	STATE ( "Fire",							rvWeaponUnfathomableBox::State_Fire )
-	STATE ( "Flashlight",					rvWeaponUnfathomableBox::State_Flashlight )
+CLASS_STATES_DECLARATION ( rvWeaponDarkMatterGun )
+	STATE ( "Idle",				rvWeaponDarkMatterGun::State_Idle)
+	STATE ( "Fire",				rvWeaponDarkMatterGun::State_Fire )
+	STATE ( "Reload",			rvWeaponDarkMatterGun::State_Reload )
 END_CLASS_STATES
 
 /*
 ================
-rvWeaponUnfathomableBox::State_Raise
+rvWeaponDarkMatterGun::State_Idle
 ================
 */
-stateResult_t rvWeaponUnfathomableBox::State_Raise( const stateParms_t& parms ) {
+stateResult_t rvWeaponDarkMatterGun::State_Idle( const stateParms_t& parms ) {
 	enum {
-		RAISE_INIT,
-		RAISE_WAIT,
+		STAGE_INIT,
+		STAGE_WAIT,
 	};	
 	switch ( parms.stage ) {
-		case RAISE_INIT:			
-			SetStatus ( WP_RISING );
-			PlayAnim( ANIMCHANNEL_ALL, "raise", parms.blendFrames );
-			return SRESULT_STAGE(RAISE_WAIT);
-			
-		case RAISE_WAIT:
-			if ( AnimDone ( ANIMCHANNEL_ALL, 4 ) ) {
-				SetState ( "Idle", 4 );
-				return SRESULT_DONE;
+		case STAGE_INIT:
+			if ( !AmmoAvailable ( ) ) {
+				SetStatus ( WP_OUTOFAMMO );
+			} else {
+				SetStatus ( WP_READY );
 			}
-			if ( wsfl.lowerWeapon ) {
-				SetState ( "Lower", 4 );
-				return SRESULT_DONE;
-			}
-			return SRESULT_WAIT;
-	}
-	return SRESULT_ERROR;	
-}
 
-/*
-================
-rvWeaponUnfathomableBox::State_Lower
-================
-*/
-stateResult_t rvWeaponUnfathomableBox::State_Lower ( const stateParms_t& parms ) {
-	enum {
-		LOWER_INIT,
-		LOWER_WAIT,
-		LOWER_WAITRAISE
-	};	
-	switch ( parms.stage ) {
-		case LOWER_INIT:
-			SetStatus ( WP_LOWERING );
-			PlayAnim( ANIMCHANNEL_ALL, "putaway", parms.blendFrames );
-			return SRESULT_STAGE(LOWER_WAIT);
-			
-		case LOWER_WAIT:
-			if ( AnimDone ( ANIMCHANNEL_ALL, 0 ) ) {
-				SetStatus ( WP_HOLSTERED );
-				return SRESULT_STAGE(LOWER_WAITRAISE);
-			}
-			return SRESULT_WAIT;
-	
-		case LOWER_WAITRAISE:
-			if ( wsfl.raiseWeapon ) {
-				SetState ( "Raise", 0 );
+			// Auto reload?
+			if ( !AmmoInClip ( ) && AmmoAvailable () && !clientReload ) {
+				SetState ( "reload", 2 );
 				return SRESULT_DONE;
 			}
-			return SRESULT_WAIT;
-	}
-	return SRESULT_ERROR;
-}
+			clientReload = false;
 
-/*
-================
-rvWeaponUnfathomableBox::State_Idle
-================
-*/
-stateResult_t rvWeaponUnfathomableBox::State_Idle ( const stateParms_t& parms ) {	
-	enum {
-		IDLE_INIT,
-		IDLE_WAIT,
-	};	
-	switch ( parms.stage ) {
-		case IDLE_INIT:			
-			SetStatus ( WP_READY );
+			StartRings ( false );
+
 			PlayCycle( ANIMCHANNEL_ALL, "idle", parms.blendFrames );
-			return SRESULT_STAGE ( IDLE_WAIT );
-			
-		case IDLE_WAIT:
+			return SRESULT_STAGE ( STAGE_WAIT );
+		
+		case STAGE_WAIT:				
+
 			if ( wsfl.lowerWeapon ) {
 				SetState ( "Lower", 4 );
 				return SRESULT_DONE;
-			}
-			
-			if ( UpdateFlashlight ( ) ) { 
-				return SRESULT_DONE;
-			}
-			if ( UpdateAttack ( ) ) {
-				return SRESULT_DONE;
-			}
-			return SRESULT_WAIT;
-	}
-	return SRESULT_ERROR;
-}
+			}		
 
-/*
-================
-rvWeaponUnfathomableBox::State_Charge
-================
-*/
-stateResult_t rvWeaponUnfathomableBox::State_Charge ( const stateParms_t& parms ) {
-	enum {
-		CHARGE_INIT,
-		CHARGE_WAIT,
-	};	
-	switch ( parms.stage ) {
-		case CHARGE_INIT:
-			viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, chargeGlow[0] );
-			StartSound ( "snd_charge", SND_CHANNEL_ITEM, 0, false, NULL );
-			PlayCycle( ANIMCHANNEL_ALL, "charging", parms.blendFrames );
-			return SRESULT_STAGE ( CHARGE_WAIT );
-			
-		case CHARGE_WAIT:	
-			if ( gameLocal.time - fireHeldTime < chargeTime ) {
-				float f;
-				f = (float)(gameLocal.time - fireHeldTime) / (float)chargeTime;
-				f = chargeGlow[0] + f * (chargeGlow[1] - chargeGlow[0]);
-				f = idMath::ClampFloat ( chargeGlow[0], chargeGlow[1], f );
-				viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, f );
-				
-				if ( !wsfl.attack ) {
-					SetState ( "Fire", 0 );
-					return SRESULT_DONE;
-				}
-				
-				return SRESULT_WAIT;
-			} 
-			SetState ( "Charged", 4 );
-			return SRESULT_DONE;
-	}
-	return SRESULT_ERROR;	
-}
-
-/*
-================
-rvWeaponUnfathomableBox::State_Charged
-================
-*/
-stateResult_t rvWeaponUnfathomableBox::State_Charged ( const stateParms_t& parms ) {
-	enum {
-		CHARGED_INIT,
-		CHARGED_WAIT,
-	};	
-	switch ( parms.stage ) {
-		case CHARGED_INIT:		
-			viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, 1.0f  );
-
-			StopSound ( SND_CHANNEL_ITEM, false );
-			StartSound ( "snd_charge_loop", SND_CHANNEL_ITEM, 0, false, NULL );
-			StartSound ( "snd_charge_click", SND_CHANNEL_BODY, 0, false, NULL );
-			return SRESULT_STAGE(CHARGED_WAIT);
-			
-		case CHARGED_WAIT:
-			if ( !wsfl.attack ) {
-				fireForced = true;
+			if ( gameLocal.time > nextAttackTime && wsfl.attack && AmmoInClip ( ) ) {
 				SetState ( "Fire", 0 );
 				return SRESULT_DONE;
+			}  
+
+			if ( wsfl.netReload ) {
+				if ( owner->entityNumber != gameLocal.localClientNum ) {
+					SetState ( "Reload", 4 );
+					return SRESULT_DONE;			
+				} else {
+					wsfl.netReload = false;
+				}
 			}
+			
 			return SRESULT_WAIT;
 	}
 	return SRESULT_ERROR;
@@ -398,95 +301,170 @@ stateResult_t rvWeaponUnfathomableBox::State_Charged ( const stateParms_t& parms
 
 /*
 ================
-rvWeaponUnfathomableBox::State_Fire
+rvWeaponDarkMatterGun::State_Fire
 ================
 */
-stateResult_t rvWeaponUnfathomableBox::State_Fire ( const stateParms_t& parms ) {
+stateResult_t rvWeaponDarkMatterGun::State_Fire ( const stateParms_t& parms ) {
 	enum {
-		FIRE_INIT,
-		FIRE_WAIT,
+		STAGE_INIT,
+		STAGE_WAIT,
 	};	
 	switch ( parms.stage ) {
-		case FIRE_INIT:	
+		case STAGE_INIT:
+			StopRings ( );
 
-			StopSound ( SND_CHANNEL_ITEM, false );
-			viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, 0 );
-			//don't fire if we're targeting a gui.
-			idPlayer* player;
-			player = gameLocal.GetLocalPlayer();
-
-			//make sure the player isn't looking at a gui first
-			if( player && player->GuiActive() )	{
-				fireHeldTime = 0;
-				SetState ( "Lower", 0 );
-				return SRESULT_DONE;
-			}
-
-			if( player && !player->CanFire() )	{
-				fireHeldTime = 0;
-				SetState ( "Idle", 4 );
-				return SRESULT_DONE;
-			}
-
-
+			nextAttackTime = gameLocal.time + (fireRate * owner->PowerUpModifier ( PMOD_FIRERATE ));
+			Attack ( false, 1, spread, 0, 1.0f );
+			PlayAnim ( ANIMCHANNEL_ALL, "fire", 0 );	
+			return SRESULT_STAGE ( STAGE_WAIT );
 	
-			if ( gameLocal.time - fireHeldTime > chargeTime ) {	
-				Attack ( true, 9, 4, 0, 1.0f );
-				PlayEffect ( "fx_chargedflash", barrelJointView, false );
-				PlayAnim( ANIMCHANNEL_ALL, "chargedfire", parms.blendFrames );
-			} else {
-				Attack ( true, 9, 4, 0, 1.0f );
-				PlayEffect ( "fx_normalflash", barrelJointView, false );
-				PlayAnim( ANIMCHANNEL_ALL, "fire", parms.blendFrames );
-			}
-			fireHeldTime = 0;
-			
-			return SRESULT_STAGE(FIRE_WAIT);
-		
-		case FIRE_WAIT:
-			if ( AnimDone ( ANIMCHANNEL_ALL, 4 ) ) {
-				SetState ( "Idle", 4 );
+		case STAGE_WAIT:		
+			if ( AnimDone ( ANIMCHANNEL_ALL, 2 ) || (gameLocal.isMultiplayer && gameLocal.time >= nextAttackTime) ) {
+				SetState ( "Idle", 0 );
 				return SRESULT_DONE;
-			}
-			if ( UpdateFlashlight ( ) || UpdateAttack ( ) ) {
-				return SRESULT_DONE;
-			}
+			}		
 			return SRESULT_WAIT;
-	}			
+	}
 	return SRESULT_ERROR;
 }
 
 /*
 ================
-rvWeaponUnfathomableBox::State_Flashlight
+rvWeaponDarkMatterGun::State_Reload
 ================
 */
-stateResult_t rvWeaponUnfathomableBox::State_Flashlight ( const stateParms_t& parms ) {
+stateResult_t rvWeaponDarkMatterGun::State_Reload ( const stateParms_t& parms ) {
 	enum {
-		FLASHLIGHT_INIT,
-		FLASHLIGHT_WAIT,
+		STAGE_INIT,
+		STAGE_WAIT,
 	};	
 	switch ( parms.stage ) {
-		case FLASHLIGHT_INIT:			
-			SetStatus ( WP_FLASHLIGHT );
-			// Wait for the flashlight anim to play		
-			PlayAnim( ANIMCHANNEL_ALL, "flashlight", 0 );
-			return SRESULT_STAGE ( FLASHLIGHT_WAIT );
-			
-		case FLASHLIGHT_WAIT:
-			if ( !AnimDone ( ANIMCHANNEL_ALL, 4 ) ) {
-				return SRESULT_WAIT;
-			}
-			
-			if ( owner->IsFlashlightOn() ) {
-				Flashlight ( false );
+		case STAGE_INIT:
+			if ( wsfl.netReload ) {
+				wsfl.netReload = false;
 			} else {
-				Flashlight ( true );
+				NetReload ( );
 			}
 			
-			SetState ( "Idle", 4 );
-			return SRESULT_DONE;
+			StartRings ( true );
+			
+			SetStatus ( WP_RELOAD );
+			PlayAnim ( ANIMCHANNEL_ALL, "reload", parms.blendFrames );
+			return SRESULT_STAGE ( STAGE_WAIT );
+			
+		case STAGE_WAIT:
+			if ( AnimDone ( ANIMCHANNEL_ALL, 4 ) ) {
+				AddToClip ( ClipSize() );
+				clientReload = true;
+				SetState ( "Idle", 4 );
+				return SRESULT_DONE;
+			}
+			if ( gameLocal.isMultiplayer && gameLocal.time > nextAttackTime && wsfl.attack ) {
+				AddToClip ( ClipSize() );
+				SetStatus ( WP_READY );
+				SetState ( "Fire", 4 );
+				return SRESULT_DONE;
+			}
+			if ( wsfl.lowerWeapon ) {
+				SetState ( "Lower", 4 );
+				return SRESULT_DONE;
+			}
+			return SRESULT_WAIT;
 	}
 	return SRESULT_ERROR;
 }
-		
+			
+/*
+===============================================================================
+
+	rvDarkMatterProjectile
+
+===============================================================================
+*/
+
+class rvDarkMatterProjectile : public idProjectile {
+public :
+	CLASS_PROTOTYPE( rvDarkMatterProjectile );
+	
+							rvDarkMatterProjectile	( void );
+							~rvDarkMatterProjectile ( void );
+
+	void					Spawn			( void );
+
+	void					Save			( idSaveGame *savefile ) const;
+	void					Restore			( idRestoreGame *savefile );
+
+	virtual void			Think			( void );
+
+protected:
+
+	int					nextDamageTime;
+	const idDict*		radiusDamageDef;
+};
+
+CLASS_DECLARATION( idProjectile, rvDarkMatterProjectile )
+END_CLASS
+
+/*
+================
+rvDarkMatterProjectile::rvDarkMatterProjectile
+================
+*/
+rvDarkMatterProjectile::rvDarkMatterProjectile ( void ) {
+	radiusDamageDef = NULL;
+}
+
+/*
+================
+rvDarkMatterProjectile::~rvDarkMatterProjectile
+================
+*/
+rvDarkMatterProjectile::~rvDarkMatterProjectile ( void ) {
+}
+
+/*
+================
+rvDarkMatterProjectile::Spawn
+================
+*/
+void rvDarkMatterProjectile::Spawn ( void ) {
+	nextDamageTime  = 0;
+	radiusDamageDef = gameLocal.FindEntityDefDict ( spawnArgs.GetString ( "def_radius_damage" ) );
+}
+
+/*
+================
+rvDarkMatterProjectile::Save
+================
+*/
+void rvDarkMatterProjectile::Save ( idSaveGame *savefile ) const {
+	savefile->WriteInt ( nextDamageTime );
+}
+
+/*
+================
+rvDarkMatterProjectile::Restore
+================
+*/
+void rvDarkMatterProjectile::Restore ( idRestoreGame *savefile ) {
+	savefile->ReadInt ( nextDamageTime );
+	
+	radiusDamageDef = gameLocal.FindEntityDefDict ( spawnArgs.GetString ( "def_radius_damage" ) );
+}
+
+/*
+================
+rvDarkMatterProjectile::Think
+================
+*/
+void rvDarkMatterProjectile::Think ( void ) {
+	physicsObj.SetClipMask( MASK_DMGSOLID );
+	idProjectile::Think ( );
+
+	if ( gameLocal.time > nextDamageTime ) {
+		gameLocal.RadiusDamage ( GetPhysics()->GetOrigin(), this, owner, owner, NULL, spawnArgs.GetString( "def_radius_damage" ), 1.0f, &hitCount );
+		nextDamageTime = gameLocal.time + SEC2MS ( spawnArgs.GetFloat ( "damageRate", ".05" ) );	
+	}
+}
+
+
