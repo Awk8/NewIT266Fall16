@@ -4,143 +4,213 @@
 #include "../Game_local.h"
 #include "../Weapon.h"
 
-const int HYPERBLASTER_SPARM_BATTERY = 6;
-const int HYPERBLASTER_SPIN_SPEED	 = 300;
+#define BLASTER_SPARM_CHARGEGLOW		6
 
-class rvWeaponHyperblaster : public rvWeapon {
+class rvWeaponJustABox : public rvWeapon {
 public:
 
-	CLASS_PROTOTYPE( rvWeaponHyperblaster );
+	CLASS_PROTOTYPE( rvWeaponJustABox );
 
-	rvWeaponHyperblaster ( void );
+	rvWeaponJustABox ( void );
 
-	virtual void			Spawn				( void );
-	void					Save				( idSaveGame *savefile ) const;
-	void					Restore				( idRestoreGame *savefile );
-	void					PreSave				( void );
-	void					PostSave			( void );
+	virtual void		Spawn				( void );
+	void				Save				( idSaveGame *savefile ) const;
+	void				Restore				( idRestoreGame *savefile );
+	void				PreSave		( void );
+	void				PostSave	( void );
 
 protected:
 
-	jointHandle_t			jointBatteryView;
-	bool					spinning;
-
-	void					SpinUp				( void );
-	void					SpinDown			( void );
+	bool				UpdateAttack		( void );
+	bool				UpdateFlashlight	( void );
+	void				Flashlight			( bool on );
 
 private:
 
-	stateResult_t		State_Idle		( const stateParms_t& parms );
-	stateResult_t		State_Fire		( const stateParms_t& parms );
-	stateResult_t		State_Reload	( const stateParms_t& parms );
+	int					chargeTime;
+	int					chargeDelay;
+	idVec2				chargeGlow;
+	bool				fireForced;
+	int					fireHeldTime;
+
+	stateResult_t		State_Raise				( const stateParms_t& parms );
+	stateResult_t		State_Lower				( const stateParms_t& parms );
+	stateResult_t		State_Idle				( const stateParms_t& parms );
+	stateResult_t		State_Charge			( const stateParms_t& parms );
+	stateResult_t		State_Charged			( const stateParms_t& parms );
+	stateResult_t		State_Fire				( const stateParms_t& parms );
+	stateResult_t		State_Flashlight		( const stateParms_t& parms );
 	
-	CLASS_STATES_PROTOTYPE ( rvWeaponHyperblaster );
+	CLASS_STATES_PROTOTYPE ( rvWeaponJustABox );
 };
 
-CLASS_DECLARATION( rvWeapon, rvWeaponHyperblaster )
+CLASS_DECLARATION( rvWeapon, rvWeaponJustABox )
 END_CLASS
 
 /*
 ================
-rvWeaponHyperblaster::rvWeaponHyperblaster
+rvWeaponJustABox::rvWeaponJustABox
 ================
 */
-rvWeaponHyperblaster::rvWeaponHyperblaster ( void ) {
+rvWeaponJustABox::rvWeaponJustABox ( void ) {
 }
 
 /*
 ================
-rvWeaponHyperblaster::Spawn
+rvWeaponJustABox::UpdateFlashlight
 ================
 */
-void rvWeaponHyperblaster::Spawn ( void ) {
-	jointBatteryView = viewAnimator->GetJointHandle ( spawnArgs.GetString ( "joint_view_battery" ) );
-	spinning		 = false;
+bool rvWeaponJustABox::UpdateFlashlight ( void ) {
+	if ( !wsfl.flashlight ) {
+		return false;
+	}
 	
-	SetState ( "Raise", 0 );	
+	SetState ( "Flashlight", 0 );
+	return true;		
 }
 
 /*
 ================
-rvWeaponHyperblaster::Save
+rvWeaponJustABox::Flashlight
 ================
 */
-void rvWeaponHyperblaster::Save ( idSaveGame *savefile ) const {
-	savefile->WriteJoint ( jointBatteryView );
-	savefile->WriteBool ( spinning );
+void rvWeaponJustABox::Flashlight ( bool on ) {
+	owner->Flashlight ( on );
+	
+	if ( on ) {
+		worldModel->ShowSurface ( "models/weapons/blaster/flare" );
+		viewModel->ShowSurface ( "models/weapons/blaster/flare" );
+	} else {
+		worldModel->HideSurface ( "models/weapons/blaster/flare" );
+		viewModel->HideSurface ( "models/weapons/blaster/flare" );
+	}
 }
 
 /*
 ================
-rvWeaponHyperblaster::Restore
+rvWeaponJustABox::UpdateAttack
 ================
 */
-void rvWeaponHyperblaster::Restore ( idRestoreGame *savefile ) {
-	savefile->ReadJoint ( jointBatteryView );
-	savefile->ReadBool ( spinning );
+bool rvWeaponJustABox::UpdateAttack ( void ) {
+	// Clear fire forced
+	if ( fireForced ) {
+		if ( !wsfl.attack ) {
+			fireForced = false;
+		} else {
+			return false;
+		}
+	}
+
+	// If the player is pressing the fire button and they have enough ammo for a shot
+	// then start the shooting process.
+	if (manaAvailable())
+	//if (AmmoAvailable())
+	{
+		if ( wsfl.attack && gameLocal.time >= nextAttackTime ) {
+			// Save the time which the fire button was pressed
+			if ( fireHeldTime == 0 ) {		
+				nextAttackTime = gameLocal.time + (fireRate * owner->PowerUpModifier ( PMOD_FIRERATE ));
+				fireHeldTime   = gameLocal.time;
+				viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, chargeGlow[0] );
+			}
+		}		
+	}
+
+	// If they have the charge mod and they have overcome the initial charge 
+	// delay then transition to the charge state.
+	if ( fireHeldTime != 0 ) {
+		if ( gameLocal.time - fireHeldTime > chargeDelay ) {
+			SetState ( "Charge", 4 );
+			return true;
+		}
+
+		// If the fire button was let go but was pressed at one point then 
+		// release the shot.
+		if ( !wsfl.attack ) {
+			idPlayer * player = gameLocal.GetLocalPlayer();
+			if( player )	{
+			
+				if( player->GuiActive())	{
+					//make sure the player isn't looking at a gui first
+					SetState ( "Lower", 0 );
+				} else {
+					SetState ( "Fire", 0 );
+				}
+			}
+			return true;
+		}
+	}
+	
+	return false;
 }
 
 /*
 ================
-rvWeaponHyperBlaster::PreSave
+rvWeaponJustABox::Spawn
 ================
 */
-void rvWeaponHyperblaster::PreSave ( void ) {
+void rvWeaponJustABox::Spawn ( void ) {
+	viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, 0 );
+	SetState ( "Raise", 0 );
+	
+	chargeGlow   = spawnArgs.GetVec2 ( "chargeGlow" );
+	chargeTime   = SEC2MS ( spawnArgs.GetFloat ( "chargeTime" ) );
+	chargeDelay  = SEC2MS ( spawnArgs.GetFloat ( "chargeDelay" ) );
+
+	fireHeldTime		= 0;
+	fireForced			= false;
+			
+	Flashlight ( owner->IsFlashlightOn() );
+}
+
+/*
+================
+rvWeaponJustABox::Save
+================
+*/
+void rvWeaponJustABox::Save ( idSaveGame *savefile ) const {
+	savefile->WriteInt ( chargeTime );
+	savefile->WriteInt ( chargeDelay );
+	savefile->WriteVec2 ( chargeGlow );
+	savefile->WriteBool ( fireForced );
+	savefile->WriteInt ( fireHeldTime );
+}
+
+/*
+================
+rvWeaponJustABox::Restore
+================
+*/
+void rvWeaponJustABox::Restore ( idRestoreGame *savefile ) {
+	savefile->ReadInt ( chargeTime );
+	savefile->ReadInt ( chargeDelay );
+	savefile->ReadVec2 ( chargeGlow );
+	savefile->ReadBool ( fireForced );
+	savefile->ReadInt ( fireHeldTime );
+}
+
+/*
+================
+rvWeaponJustABox::PreSave
+================
+*/
+void rvWeaponJustABox::PreSave ( void ) {
 
 	SetState ( "Idle", 4 );
 
-	StopSound( SND_CHANNEL_WEAPON, false );
-	StopSound( SND_CHANNEL_BODY, false );
-	StopSound( SND_CHANNEL_ITEM, false );
+	StopSound( SND_CHANNEL_WEAPON, 0);
+	StopSound( SND_CHANNEL_BODY, 0);
+	StopSound( SND_CHANNEL_ITEM, 0);
 	StopSound( SND_CHANNEL_ANY, false );
 	
 }
 
 /*
 ================
-rvWeaponHyperBlaster::PostSave
+rvWeaponJustABox::PostSave
 ================
 */
-void rvWeaponHyperblaster::PostSave ( void ) {
-}
-
-/*
-================
-rvWeaponHyperblaster::SpinUp
-================
-*/
-void rvWeaponHyperblaster::SpinUp ( void ) {
-	if ( spinning ) {
-		return;
-	}
-	
-	if ( jointBatteryView != INVALID_JOINT ) {
-		viewAnimator->SetJointAngularVelocity ( jointBatteryView, idAngles(0,HYPERBLASTER_SPIN_SPEED,0), gameLocal.time, 50 );
-	}
-
-	StopSound ( SND_CHANNEL_BODY2, false );
-	StartSound ( "snd_battery_spin", SND_CHANNEL_BODY2, 0, false, NULL );
-	spinning = true;
-}
-
-/*
-================
-rvWeaponHyperblaster::SpinDown
-================
-*/
-void rvWeaponHyperblaster::SpinDown	( void ) {
-	if ( !spinning ) {
-		return;
-	}
-	
-	StopSound ( SND_CHANNEL_BODY2, false );
-	StartSound ( "snd_battery_spindown", SND_CHANNEL_BODY2, 0, false, NULL );
-
-	if ( jointBatteryView != INVALID_JOINT ) {
-		viewAnimator->SetJointAngularVelocity ( jointBatteryView, idAngles(0,0,0), gameLocal.time, 500 );
-	}
-
-	spinning = false;
+void rvWeaponJustABox::PostSave ( void ) {
 }
 
 /*
@@ -151,136 +221,34 @@ void rvWeaponHyperblaster::SpinDown	( void ) {
 ===============================================================================
 */
 
-CLASS_STATES_DECLARATION ( rvWeaponHyperblaster )
-	STATE ( "Idle",				rvWeaponHyperblaster::State_Idle)
-	STATE ( "Fire",				rvWeaponHyperblaster::State_Fire )
-	STATE ( "Reload",			rvWeaponHyperblaster::State_Reload )
+CLASS_STATES_DECLARATION ( rvWeaponJustABox )
+	STATE ( "Raise",						rvWeaponJustABox::State_Raise )
+	STATE ( "Lower",						rvWeaponJustABox::State_Lower )
+	STATE ( "Idle",							rvWeaponJustABox::State_Idle)
+	STATE ( "Charge",						rvWeaponJustABox::State_Charge )
+	STATE ( "Charged",						rvWeaponJustABox::State_Charged )
+	STATE ( "Fire",							rvWeaponJustABox::State_Fire )
+	STATE ( "Flashlight",					rvWeaponJustABox::State_Flashlight )
 END_CLASS_STATES
 
 /*
 ================
-rvWeaponHyperblaster::State_Idle
+rvWeaponJustABox::State_Raise
 ================
 */
-stateResult_t rvWeaponHyperblaster::State_Idle( const stateParms_t& parms ) {
+stateResult_t rvWeaponJustABox::State_Raise( const stateParms_t& parms ) {
 	enum {
-		STAGE_INIT,
-		STAGE_WAIT,
+		RAISE_INIT,
+		RAISE_WAIT,
 	};	
 	switch ( parms.stage ) {
-		case STAGE_INIT:
-			if ( !AmmoAvailable ( ) ) {
-				SetStatus ( WP_OUTOFAMMO );
-			} else {
-				SetStatus ( WP_READY );
-			}
-
-			SpinDown ( );
-
-			if ( ClipSize() ) {
-				viewModel->SetShaderParm ( HYPERBLASTER_SPARM_BATTERY, (float)AmmoInClip()/ClipSize() );
-			} else {
-				viewModel->SetShaderParm ( HYPERBLASTER_SPARM_BATTERY, 1.0f );		
-			}
-			PlayCycle( ANIMCHANNEL_ALL, "idle", parms.blendFrames );
-			return SRESULT_STAGE ( STAGE_WAIT );
-		
-		case STAGE_WAIT:			
-			if ( wsfl.lowerWeapon ) {
-				SetState ( "Lower", 4 );
-				return SRESULT_DONE;
-			}		
-			if ( !clipSize ) {
-				if ( gameLocal.time > nextAttackTime && wsfl.attack && AmmoAvailable ( ) ) {
-					SetState ( "Fire", 0 );
-					return SRESULT_DONE;
-				} 
-			} else {
-				if ( gameLocal.time > nextAttackTime && wsfl.attack && AmmoInClip ( ) ) {
-					SetState ( "Fire", 0 );
-					return SRESULT_DONE;
-				}  
-				if ( wsfl.attack && AutoReload() && !AmmoInClip ( ) && AmmoAvailable () ) {
-					SetState ( "Reload", 4 );
-					return SRESULT_DONE;			
-				}
-				if ( wsfl.netReload || (wsfl.reload && AmmoInClip() < ClipSize() && AmmoAvailable()>AmmoInClip()) ) {
-					SetState ( "Reload", 4 );
-					return SRESULT_DONE;			
-				}				
-			}
-
-			return SRESULT_WAIT;
-	}
-	return SRESULT_ERROR;
-}
-
-/*
-================
-rvWeaponHyperblaster::State_Fire
-================
-*/
-stateResult_t rvWeaponHyperblaster::State_Fire ( const stateParms_t& parms ) {
-	enum {
-		STAGE_INIT,
-		STAGE_WAIT,
-	};	
-	switch ( parms.stage ) {
-		case STAGE_INIT:
-			SpinUp ( );
-			nextAttackTime = gameLocal.time + (fireRate * owner->PowerUpModifier ( PMOD_FIRERATE ));
-			Attack ( false, 1, spread, 0, 1.0f );
-			if ( ClipSize() ) {
-				viewModel->SetShaderParm ( HYPERBLASTER_SPARM_BATTERY, (float)AmmoInClip()/ClipSize() );
-			} else {
-				viewModel->SetShaderParm ( HYPERBLASTER_SPARM_BATTERY, 1.0f );		
-			}
-			PlayAnim ( ANIMCHANNEL_ALL, "fire", 0 );	
-			return SRESULT_STAGE ( STAGE_WAIT );
-	
-		case STAGE_WAIT:		
-			if ( wsfl.attack && gameLocal.time >= nextAttackTime && AmmoInClip() && !wsfl.lowerWeapon ) {
-				SetState ( "Fire", 0 );
-				return SRESULT_DONE;
-			}
-			if ( (!wsfl.attack || !AmmoInClip() || wsfl.lowerWeapon) && AnimDone ( ANIMCHANNEL_ALL, 0 ) ) {
-				SetState ( "Idle", 0 );
-				return SRESULT_DONE;
-			}		
-			return SRESULT_WAIT;
-	}
-	return SRESULT_ERROR;
-}
-
-/*
-================
-rvWeaponHyperblaster::State_Reload
-================
-*/
-stateResult_t rvWeaponHyperblaster::State_Reload ( const stateParms_t& parms ) {
-	enum {
-		STAGE_INIT,
-		STAGE_WAIT,
-	};	
-	switch ( parms.stage ) {
-		case STAGE_INIT:
-			if ( wsfl.netReload ) {
-				wsfl.netReload = false;
-			} else {
-				NetReload ( );
-			}
+		case RAISE_INIT:			
+			SetStatus ( WP_RISING );
+			PlayAnim( ANIMCHANNEL_ALL, "raise", parms.blendFrames );
+			return SRESULT_STAGE(RAISE_WAIT);
 			
-			SpinDown ( );
-
-			viewModel->SetShaderParm ( HYPERBLASTER_SPARM_BATTERY, 0 );
-			
-			SetStatus ( WP_RELOAD );
-			PlayAnim ( ANIMCHANNEL_ALL, "reload", parms.blendFrames );
-			return SRESULT_STAGE ( STAGE_WAIT );
-			
-		case STAGE_WAIT:
+		case RAISE_WAIT:
 			if ( AnimDone ( ANIMCHANNEL_ALL, 4 ) ) {
-				AddToClip ( ClipSize() );
 				SetState ( "Idle", 4 );
 				return SRESULT_DONE;
 			}
@@ -290,6 +258,234 @@ stateResult_t rvWeaponHyperblaster::State_Reload ( const stateParms_t& parms ) {
 			}
 			return SRESULT_WAIT;
 	}
+	return SRESULT_ERROR;	
+}
+
+/*
+================
+rvWeaponJustABox::State_Lower
+================
+*/
+stateResult_t rvWeaponJustABox::State_Lower ( const stateParms_t& parms ) {
+	enum {
+		LOWER_INIT,
+		LOWER_WAIT,
+		LOWER_WAITRAISE
+	};	
+	switch ( parms.stage ) {
+		case LOWER_INIT:
+			SetStatus ( WP_LOWERING );
+			PlayAnim( ANIMCHANNEL_ALL, "putaway", parms.blendFrames );
+			return SRESULT_STAGE(LOWER_WAIT);
+			
+		case LOWER_WAIT:
+			if ( AnimDone ( ANIMCHANNEL_ALL, 0 ) ) {
+				SetStatus ( WP_HOLSTERED );
+				return SRESULT_STAGE(LOWER_WAITRAISE);
+			}
+			return SRESULT_WAIT;
+	
+		case LOWER_WAITRAISE:
+			if ( wsfl.raiseWeapon ) {
+				SetState ( "Raise", 0 );
+				return SRESULT_DONE;
+			}
+			return SRESULT_WAIT;
+	}
 	return SRESULT_ERROR;
 }
+
+/*
+================
+rvWeaponJustABox::State_Idle
+================
+*/
+stateResult_t rvWeaponJustABox::State_Idle ( const stateParms_t& parms ) {	
+	enum {
+		IDLE_INIT,
+		IDLE_WAIT,
+	};	
+	switch ( parms.stage ) {
+		case IDLE_INIT:			
+			SetStatus ( WP_READY );
+			PlayCycle( ANIMCHANNEL_ALL, "idle", parms.blendFrames );
+			return SRESULT_STAGE ( IDLE_WAIT );
 			
+		case IDLE_WAIT:
+			if ( wsfl.lowerWeapon ) {
+				SetState ( "Lower", 4 );
+				return SRESULT_DONE;
+			}
+			
+			if ( UpdateFlashlight ( ) ) { 
+				return SRESULT_DONE;
+			}
+			if ( UpdateAttack ( ) ) {
+				return SRESULT_DONE;
+			}
+			return SRESULT_WAIT;
+	}
+	return SRESULT_ERROR;
+}
+
+/*
+================
+rvWeaponJustABox::State_Charge
+================
+*/
+stateResult_t rvWeaponJustABox::State_Charge ( const stateParms_t& parms ) {
+	enum {
+		CHARGE_INIT,
+		CHARGE_WAIT,
+	};	
+	switch ( parms.stage ) {
+		case CHARGE_INIT:
+			viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, chargeGlow[0] );
+			StartSound ( "snd_charge", SND_CHANNEL_ITEM, 0, false, NULL );
+			PlayCycle( ANIMCHANNEL_ALL, "charging", parms.blendFrames );
+			return SRESULT_STAGE ( CHARGE_WAIT );
+			
+		case CHARGE_WAIT:	
+			if ( gameLocal.time - fireHeldTime < chargeTime ) {
+				float f;
+				f = (float)(gameLocal.time - fireHeldTime) / (float)chargeTime;
+				f = chargeGlow[0] + f * (chargeGlow[1] - chargeGlow[0]);
+				f = idMath::ClampFloat ( chargeGlow[0], chargeGlow[1], f );
+				viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, f );
+				
+				if ( !wsfl.attack ) {
+					SetState ( "Fire", 0 );
+					return SRESULT_DONE;
+				}
+				
+				return SRESULT_WAIT;
+			} 
+			SetState ( "Charged", 4 );
+			return SRESULT_DONE;
+	}
+	return SRESULT_ERROR;	
+}
+
+/*
+================
+rvWeaponJustABox::State_Charged
+================
+*/
+stateResult_t rvWeaponJustABox::State_Charged ( const stateParms_t& parms ) {
+	enum {
+		CHARGED_INIT,
+		CHARGED_WAIT,
+	};	
+	switch ( parms.stage ) {
+		case CHARGED_INIT:		
+			viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, 1.0f  );
+
+			StopSound ( SND_CHANNEL_ITEM, false );
+			StartSound ( "snd_charge_loop", SND_CHANNEL_ITEM, 0, false, NULL );
+			StartSound ( "snd_charge_click", SND_CHANNEL_BODY, 0, false, NULL );
+			return SRESULT_STAGE(CHARGED_WAIT);
+			
+		case CHARGED_WAIT:
+			if ( !wsfl.attack ) {
+				fireForced = true;
+				SetState ( "Fire", 0 );
+				return SRESULT_DONE;
+			}
+			return SRESULT_WAIT;
+	}
+	return SRESULT_ERROR;
+}
+
+/*
+================
+rvWeaponJustABox::State_Fire
+================
+*/
+stateResult_t rvWeaponJustABox::State_Fire ( const stateParms_t& parms ) {
+	enum {
+		FIRE_INIT,
+		FIRE_WAIT,
+	};	
+	switch ( parms.stage ) {
+		case FIRE_INIT:	
+
+			StopSound ( SND_CHANNEL_ITEM, false );
+			viewModel->SetShaderParm ( BLASTER_SPARM_CHARGEGLOW, 0 );
+			//don't fire if we're targeting a gui.
+			idPlayer* player;
+			player = gameLocal.GetLocalPlayer();
+
+			//make sure the player isn't looking at a gui first
+			if( player && player->GuiActive() )	{
+				fireHeldTime = 0;
+				SetState ( "Lower", 0 );
+				return SRESULT_DONE;
+			}
+
+			if( player && !player->CanFire() )	{
+				fireHeldTime = 0;
+				SetState ( "Idle", 4 );
+				return SRESULT_DONE;
+			}
+
+
+	
+			if ( gameLocal.time - fireHeldTime > chargeTime ) {	
+				Attack ( true, 5, 8, 0, 1.0f );
+				PlayEffect ( "fx_chargedflash", barrelJointView, false );
+				PlayAnim( ANIMCHANNEL_ALL, "chargedfire", parms.blendFrames );
+			} else {
+				Attack ( true, 3, 3, 0, 1.0f );
+				PlayEffect ( "fx_normalflash", barrelJointView, false );
+				PlayAnim( ANIMCHANNEL_ALL, "fire", parms.blendFrames );
+			}
+			fireHeldTime = 0;
+			
+			return SRESULT_STAGE(FIRE_WAIT);
+		
+		case FIRE_WAIT:
+			if ( AnimDone ( ANIMCHANNEL_ALL, 4 ) ) {
+				SetState ( "Idle", 4 );
+				return SRESULT_DONE;
+			}
+			if ( UpdateFlashlight ( ) || UpdateAttack ( ) ) {
+				return SRESULT_DONE;
+			}
+			return SRESULT_WAIT;
+	}			
+	return SRESULT_ERROR;
+}
+
+/*
+================
+rvWeaponJustABox::State_Flashlight
+================
+*/
+stateResult_t rvWeaponJustABox::State_Flashlight ( const stateParms_t& parms ) {
+	enum {
+		FLASHLIGHT_INIT,
+		FLASHLIGHT_WAIT,
+	};	
+	switch ( parms.stage ) {
+		case FLASHLIGHT_INIT:			
+			SetStatus ( WP_FLASHLIGHT );
+			// Wait for the flashlight anim to play		
+			PlayAnim( ANIMCHANNEL_ALL, "flashlight", 0 );
+			return SRESULT_STAGE ( FLASHLIGHT_WAIT );
+			
+		case FLASHLIGHT_WAIT:
+			if ( !AnimDone ( ANIMCHANNEL_ALL, 4 ) ) {
+				return SRESULT_WAIT;
+			}
+			
+			if ( owner->IsFlashlightOn() ) {
+				Flashlight ( false );
+			} else {
+				Flashlight ( true );
+			}
+			
+			SetState ( "Idle", 4 );
+			return SRESULT_DONE;
+	}
+	return SRESULT_ERROR;
+}
