@@ -2488,6 +2488,8 @@ void rvWeapon::UseMana( int amount ) {
 		mana -= ( amount * manaRequired );
 		if ( mana < 0 ) {
 			mana = 0;
+			//int lastReg = gameLocal.time;
+			//RegenMana( lastReg );
 		}
 	}
 }
@@ -2511,15 +2513,15 @@ void rvWeapon::UseAmmo( int amount ) {
 ================
 rvWeapon::RegenMana
 ================
-*/
-void rvWeapon::RegenMana ( ) {
 
+void rvWeapon::RegenMana ( int lastReg ) {
+	int regDelay = 5;
  	if ( gameLocal.isClient ) {
  		return;
  	}
 
-	//if ( gameLocal.time - lastReg > regDelay )
-		manaLeft += 1;
+	if ( gameLocal.time - lastReg > regDelay )
+		manaLeft += 10;
 
 	if ( manaLeft > maxMana) {
 		manaLeft = maxMana;
@@ -2539,7 +2541,7 @@ void rvWeapon::RegenMana ( ) {
 	if ( manaLeft == 0 ) {
 		viewModel->PostGUIEvent ( "weapon_noammo" );
 	}
-}
+}*/
 
 /*
 ================
@@ -2602,9 +2604,11 @@ void rvWeapon::Attack( bool altAttack, int num_attacks, float spread, float fuse
 	if ( !gameLocal.isClient ) {
 		// check if we're out of ammo or the clip is empty
 		int manaAvail = owner->inventory.HasMana( manaRequired );
-		if ( !manaAvail || ammoClip <= 0) {
+		if ( !manaAvail ) {
 		//int ammoAvail = owner->inventory.HasAmmo( ammoType, ammoRequired );
 		//if ( !ammoAvail || ( ( clipSize != 0 ) && ( ammoClip <= 0 ) ) ) {
+			//int lastReg = gameLocal.time;
+			//RegenMana( lastReg );
 			return;
 		}
 

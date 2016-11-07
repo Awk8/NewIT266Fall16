@@ -201,8 +201,8 @@ void idInventory::Clear( void ) {
 	maxLevel			= 0;
 	experience			= 0;
 	maxHealth			= 0;
-	//maxMana				= 0;
-	//mana				= 0;
+	maxMana				= 0;
+	mana				= 0;
 	weapons				= 0;
 	carryOverWeapons	= 0;
 	powerups			= 0;
@@ -279,7 +279,7 @@ void idInventory::GetPersistantData( idDict &dict ) {
 	dict.SetInt( "armor", armor );
 
 	// mana
-	//dict.SetInt( "mana", mana );
+	dict.SetInt( "mana", mana );
 
 	// ammo
 	for( i = 0; i < MAX_AMMOTYPES; i++ ) {
@@ -344,8 +344,8 @@ void idInventory::RestoreInventory( idPlayer *owner, const idDict &dict ) {
 	// health/armor
 	maxHealth		= dict.GetInt( "maxhealth", "100" );
 	maxLevel		= dict.GetInt( "maxLevel", "10" );
-	//maxMana			= dict.GetInt( "maxMana", "100" );	
-	//mana			= dict.GetInt( "mana", "100" );
+	maxMana			= dict.GetInt( "maxMana", "100" );	
+	mana			= dict.GetInt( "mana", "100" );
 	armor			= dict.GetInt( "armor", "50" );
 	maxarmor		= dict.GetInt( "maxarmor", "100" );
 
@@ -413,8 +413,8 @@ void idInventory::Save( idSaveGame *savefile ) const {
 	savefile->WriteInt( powerups );
 	savefile->WriteInt( armor );
 	savefile->WriteInt( maxarmor );
-	//savefile->WriteInt( maxMana );
-	//savefile->WriteInt( mana );
+	savefile->WriteInt( maxMana );
+	savefile->WriteInt( mana );
 	savefile->WriteInt( maxLevel );
 
 	for( i = 0; i < MAX_AMMO; i++ ) {
@@ -496,8 +496,8 @@ void idInventory::Restore( idRestoreGame *savefile ) {
 	savefile->ReadInt( powerups );
 	savefile->ReadInt( armor );
 	savefile->ReadInt( maxarmor );
-	//savefile->ReadInt( maxMana );
-	//savefile->ReadInt( mana );
+	savefile->ReadInt( maxMana );
+	savefile->ReadInt( mana );
 	savefile->ReadInt( maxLevel );
 
 	for( i = 0; i < MAX_AMMO; i++ ) {
@@ -630,21 +630,22 @@ const char * idInventory::AmmoClassForWeaponClass( const char *weapon_classname 
 idInventory::DetermineManaAvailability
 ==============
 */
-/*bool idInventory::DetermineManaAvailability( idPlayer* owner, int manaAmount) {
-	if ( mana == maxMana) {
+bool idInventory::DetermineManaAvailability( idPlayer* owner, int manaAmount) {
+	int manaAmt = owner->mana;
+	if ( manaAmt == maxMana) {
 		return false;
 	}
 
 	// If we are picking up mana and we aren't currently full.
-	if ( manaAmount && mana != maxMana ) {
-		mana += manaAmount;
-		if ( mana > maxMana ) {
-			mana = maxMana;
+	if ( manaAmount && manaAmt != maxMana ) {
+		manaAmt += manaAmount;
+		if ( manaAmt > maxMana ) {
+			manaAmt = maxMana;
 		}
 		return true;
 	}		
 	return false;
-}*/
+}
 
 // RAVEN BEGIN
 // mekberg: if the player can pick up ammo at this time
@@ -1068,7 +1069,7 @@ idInventory::HasMana
 int idInventory::HasMana( int amount )
 {
 	if ( mana <= 0 )
-		return -1;
+		return 0;
 	return mana / amount;
 }
 
@@ -3503,19 +3504,17 @@ idPlayer::UpdateHudAmmo
 void idPlayer::UpdateHudAmmo( idUserInterface *_hud ) {
 	int inclip;
 	int ammoamount;
-
-	//if (mana < inventory.maxMana ){
-		//mana += 1;	
-	//}
+	int manaAmt;
 
 	assert( weapon );
 	assert( _hud );
 
 	inclip		= weapon->AmmoInClip();
 	ammoamount	= weapon->AmmoAvailable();
+	manaAmt = weapon->manaAvailable();
 
-	//if ( mana < 0 ) {
-	if ( ammoamount < 0 ) {
+	if ( manaAmt < 0 ) {
+	//if ( ammoamount < 0 ) {
 		 //show infinite mana
 		_hud->SetStateString( "player_ammo", "-1" );
 		_hud->SetStateString( "player_totalammo", "-1" );
@@ -3531,15 +3530,15 @@ void idPlayer::UpdateHudAmmo( idUserInterface *_hud ) {
 		}
 		_hud->SetStateInt ( "player_ammo", inclip );
 	} else {
-		//_hud->SetStateFloat ( "player_ammopct", (float)mana / (float)inventory.maxMana );
-		//_hud->SetStateInt ( "player_totalammo", mana );
-		_hud->SetStateFloat ( "player_ammopct", (float)ammoamount / (float)weapon->maxAmmo );
-		_hud->SetStateInt ( "player_totalammo", ammoamount );
+		_hud->SetStateFloat ( "player_ammopct", (float)manaAmt / (float)inventory.maxMana );
+		_hud->SetStateInt ( "player_totalammo", manaAmt );
+		//_hud->SetStateFloat ( "player_ammopct", (float)ammoamount / (float)weapon->maxAmmo );
+		//_hud->SetStateInt ( "player_totalammo", ammoamount );
 		_hud->SetStateInt ( "player_ammo", -1 );
 	} 
 	
-	//_hud->SetStateBool( "player_ammo_empty", ( mana == 0 ) );
-	_hud->SetStateBool( "player_ammo_empty", ( ammoamount == 0 ) );
+	_hud->SetStateBool( "player_ammo_empty", ( manaAmt == 0 ) );
+	//_hud->SetStateBool( "player_ammo_empty", ( ammoamount == 0 ) );
 }
 
 /*
@@ -8222,16 +8221,16 @@ int GetItemBuyImpulse( const char* itemName )
 
 	ItemBuyImpulse itemBuyImpulseTable[] =
 	{
-		{ "weapon_shotgun",					IMPULSE_100, },
-		{ "weapon_machinegun",				IMPULSE_101, },
-		{ "weapon_hyperblaster",			IMPULSE_102, },
-		{ "weapon_grenadelauncher",			IMPULSE_103, },
-		{ "weapon_nailgun",					IMPULSE_104, },
-		{ "weapon_rocketlauncher",			IMPULSE_105, },
-		{ "weapon_railgun",					IMPULSE_106, },
-		{ "weapon_lightninggun",			IMPULSE_107, },
+		{ "mana_refil",					IMPULSE_100, },
+		{ "damage_boost",				IMPULSE_101, },
+		{ "infinite_mana",			IMPULSE_102, },
+		{ "invincible",			IMPULSE_103, },
+		{ "weapon_boost",					IMPULSE_104, },
+		{ "super_speed",			IMPULSE_105, },
+		{ "super_jump",					IMPULSE_106, },
+		{ "health_regen",			IMPULSE_107, },
 		//									IMPULSE_108 - Unused
-		{ "weapon_napalmgun",				IMPULSE_109, },
+		//{ "weapon_napalmgun",				IMPULSE_109, },
 		//		{ "weapon_dmg",						IMPULSE_110, },
 		//									IMPULSE_111 - Unused
 		//									IMPULSE_112 - Unused
@@ -8242,12 +8241,12 @@ int GetItemBuyImpulse( const char* itemName )
 		//									IMPULSE_117 - Unused
 		{ "item_armor_small",				IMPULSE_118, },
 		{ "item_armor_large",				IMPULSE_119, },
-		{ "ammorefill",						IMPULSE_120, },
+		//{ "ammorefill",						IMPULSE_120, },
 		//									IMPULSE_121 - Unused
 		//									IMPULSE_122 - Unused
-		{ "ammo_regen",						IMPULSE_123, },
-		{ "health_regen",					IMPULSE_124, },
-		{ "damage_boost",					IMPULSE_125, },
+		//{ "ammo_regen",						IMPULSE_123, },
+		//{ "health_regen",					IMPULSE_124, },
+		//{ "damage_boost",					IMPULSE_125, },
 		//									IMPULSE_126 - Unused
 		//									IMPULSE_127 - Unused
 	};

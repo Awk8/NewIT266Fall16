@@ -211,7 +211,7 @@ public:
 	int					AmmoRequired				( void ) const;
 	int					ManaRequired				( void ) const;
 	void				AddToClip					( int amount );
-	void				RegenMana					( );
+	void				RegenMana					( int lastReg );
 	void				UseAmmo						( int amount );
 	void				UseMana						( int amount );
 	void				SetClip						( int amount );
