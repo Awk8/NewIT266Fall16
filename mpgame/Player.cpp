@@ -9925,17 +9925,17 @@ void idPlayer::Killed( idEntity *inflictor, idEntity *attacker, int damage, cons
 							// Killed by self
 							float cashAward = (float) gameLocal.mpGame.mpBuyingManager.GetIntValueForKey( "playerCashAward_killingSelf", 0 );
 							killer->GiveCash( cashAward );
-							killer->GiveXP( -100 );
+							killer->GiveXP( -10 );
 						}
 						else if ( gameLocal.IsTeamGame() && killer->team == team ) {
 							// Killed by teammate
 							float cashAward = (float) gameLocal.mpGame.mpBuyingManager.GetIntValueForKey( "playerCashAward_killingTeammate", 0 );
-							killer->GiveCash( cashAward );
-							killer->GiveXP( -100 );
+							//killer->GiveCash( cashAward );
+							//killer->GiveXP( -10 );
 						} else {
 							// Killed by enemy
-							float cashAward = (float) gameLocal.mpGame.mpBuyingManager.GetOpponentKillCashAward( playerLevel );
-							float XPAward = (float) gameLocal.mpGame.mpBuyingManager.GetOpponentKillXPAward( playerLevel );
+							float cashAward = (float) gameLocal.mpGame.mpBuyingManager.GetOpponentKillCashAward( this->playerLevel );
+							float XPAward = (float) gameLocal.mpGame.mpBuyingManager.GetOpponentKillXPAward( this->playerLevel );
 							killer->GiveCash( cashAward );
 							killer->GiveXP( XPAward );
 						}
@@ -14237,55 +14237,55 @@ void idPlayer::GiveXP( float XPDeltaAmount )
 	float minXP = 0;
 	float maxXP = 6000;
 
-	float oldXP = playerXP;
-	playerXP += XPDeltaAmount;
+	float oldXP = this->playerXP;
+	this->playerXP += XPDeltaAmount;
 	ClampXP( minXP, maxXP );
-	SetLevel( playerXP );
+	SetLevel( this->playerXP );
 }
 
 void idPlayer::SetLevel( float XP )
 {
 	if ( XP <= 0 )
 	{
-		playerLevel = 1;
+		this->playerLevel = 1;
 	}
 	else if ( XP >= 10 && XP < 30)
 	{
-		playerLevel = 2;
+		this->playerLevel = 2;
 	}
 	else if ( XP >= 30 && XP < 60)
 	{
-		playerLevel = 3;
+		this->playerLevel = 3;
 	}
 	else if ( XP >= 60 && XP < 100)
 	{
-		playerLevel = 4;
+		this->playerLevel = 4;
 	}
 	else if ( XP >= 100 && XP < 150)
 	{
-		playerLevel = 5;
+		this->playerLevel = 5;
 	}
 	else if ( XP >= 150 && XP < 210)
 	{
-		playerLevel = 6;
+		this->playerLevel = 6;
 	}
 	else if ( XP >= 270 && XP < 340)
 	{
-		playerLevel = 7;
+		this->playerLevel = 7;
 	}
 	else if ( XP >= 340 && XP < 420)
 	{
-		playerLevel = 8;
+		this->playerLevel = 8;
 	}
 	else if ( XP >= 420 && XP < 510)
 	{
-		playerLevel = 9;
+		this->playerLevel = 9;
 	}
 	else if ( XP >= 510 )
 	{
-		playerLevel = 10;
+		this->playerLevel = 10;
 	}
-	PLevel( playerLevel );
+	PLevel( this->playerLevel );
 }
 
 void idPlayer::GiveCash( float cashDeltaAmount )
@@ -14383,69 +14383,69 @@ void idPlayer::PLevel ( int pLevel)
 		case 2:
 			this->inventory.maxHealth = 150;
 			this->SetWeapon(1);
-			playerLevel = 2;
+			//playerLevel = 2;
 			break;
 		case 3:
 			// increase health
 			this->inventory.maxHealth = 150;
 			this->SetWeapon(2);
-			playerLevel = 3;
+			//playerLevel = 3;
 			// give weapon 3
 			break;
 		case 4:
 			// increase health
 			this->inventory.maxHealth = 200;
 			this->SetWeapon(3);
-			playerLevel = 4;
+			//playerLevel = 4;
 			// give weapon 4
 			break;
 		case 5:
 			// increase health
 			this->inventory.maxHealth = 250;
 			this->SetWeapon(4);
-			playerLevel = 5;
+			//playerLevel = 5;
 			// give weapon 5
 			break;
 		case 6:
 			// increase health
 			this->inventory.maxHealth = 300;
 			this->SetWeapon(5);
-			playerLevel = 6;
+			//playerLevel = 6;
 			// give weapon 6
 			break;
 		case 7:
 			// increase health
 			this->inventory.maxHealth = 400;
 			this->SetWeapon(6);
-			playerLevel = 7;
+			//playerLevel = 7;
 			// give weapon 7
 			break;
 		case 8:
 			// increase health
 			this->inventory.maxHealth = 500;
 			this->SetWeapon(7);
-			playerLevel = 8;
+			//playerLevel = 8;
 			// give weapon 8
 			break;
 		case 9:
 			// increase health
 			this->inventory.maxHealth = 600;
 			this->SetWeapon(8);
-			playerLevel = 9;
+			//playerLevel = 9;
 			// give weapon 9
 			break;
 		case 10:
 			// increase health
 			this->inventory.maxHealth = 700;
 			this->SetWeapon(9);
-			playerLevel = 10;
+			//playerLevel = 10;
 			// give weapon 10
 			break;
 		default:
 			// wep 0
 			this->inventory.maxHealth = 100;
 			this->SetWeapon(0);
-			playerLevel = 1;
+			//playerLevel = 1;
 			break;
 	}
 

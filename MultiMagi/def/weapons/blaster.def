@@ -88,7 +88,7 @@ entityDef weapon_blaster
 	"def_hitscan"				"hitscan_blaster"
 	"def_altprojectile"			"projectile_blaster_charged"
 	"ammoType"					"ammo_blaster"
-	"manaRequired"				"5"
+	"manaRequired"				"2"
 	"clipSize"					"0"
 	"ammoRequired"				"0"
 //	"launchFromBarrel"			"1"
@@ -263,10 +263,17 @@ entityDef projectile_blaster
 	"velocity"					"500 0 0"
 	"fuse"						"4"
 	"push"						"7500"
+
+	"linear_friction"			"0"
+	"angular_friction"			"0"
+	"contact_friction"			"0"
+	"bounce"					".65"
+	"gravity"					"0"
+	"fuse"						"2.5"
 								
 	"detonate_on_fuse"			"1"
 	"detonate_on_death"			"0"
-	"detonate_on_world"			"1"
+	"detonate_on_world"			"0"
 	"detonate_on_actor"			"1"
 								
 	"impact_gib"				"1"
