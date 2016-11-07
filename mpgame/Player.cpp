@@ -8304,19 +8304,17 @@ itemBuyStatus_t idPlayer::ItemBuyStatus( const char* itemName )
 		if( PowerUpActive( POWERUP_SCOUT ) )
 			return IBS_NOT_ALLOWED;
 	}
-	else if( itemNameStr == "ammorefill" )
+	else if( itemNameStr == "ammo_refil" )
 	{
 		if( inventory.carryOverWeapons & CARRYOVER_FLAG_AMMO )
 			return IBS_ALREADY_HAVE;
 
-		// If we are full of ammo for all weapons, you can't buy the ammo refill anymore.
-		bool fullAmmo = true;
-		for ( int i = 0 ; i < MAX_AMMOTYPES; i++ )
-		{
-			if ( inventory.ammo[i] != inventory.MaxAmmoForAmmoClass( this, rvWeapon::GetAmmoNameForIndex(i) ) )
-				fullAmmo = false;
-		}
-		if ( fullAmmo )
+		// If we are full Mana, you can't buy the mana refill anymore.
+		bool fullMana = true;
+
+		if ( inventory.mana != inventory.maxMana )
+				fullMana = false;
+		if ( fullMana )
 			return IBS_NOT_ALLOWED;
 	}
 	else if ( itemNameStr == "fc_armor_regen" )
@@ -8327,16 +8325,36 @@ itemBuyStatus_t idPlayer::ItemBuyStatus( const char* itemName )
 	if ( gameLocal.gameType == GAME_DM || gameLocal.gameType == GAME_TOURNEY || gameLocal.gameType == GAME_ARENA_CTF || gameLocal.gameType == GAME_1F_CTF || gameLocal.gameType == GAME_ARENA_1F_CTF ) {
 		if ( itemNameStr == "ammo_regen" )
 			return IBS_NOT_ALLOWED;
-		if ( itemNameStr == "health_regen" )
-			return IBS_NOT_ALLOWED;
-		if ( itemNameStr == "damage_boost" )
-			return IBS_NOT_ALLOWED;
+		//if ( itemNameStr == "health_regen" )
+		//	return IBS_NOT_ALLOWED;
+		//if ( itemNameStr == "damage_boost" )
+		//	return IBS_NOT_ALLOWED;
 	}
 
 	if ( CanSelectWeapon(itemName) != -1 )
 		return IBS_ALREADY_HAVE;
-
-	int cost = GetItemCost(itemName);
+	int cost;
+	if ( itemName == "mana_refil" )
+	{
+		cost = 250;
+	}else if ( itemName == "infinite_mana" )
+	{
+		cost = 2000;
+	}else if ( itemName == "invincible" )
+	{
+		cost = 5000;
+	}else if ( itemName == "weapon_boost" )
+	{
+		cost = 4000;
+	}else if ( itemName == "super_speed" )
+	{
+		cost = 1000;
+	}else if ( itemName == "super_jump" )
+	{
+		cost = 1000;
+	}else	
+		cost = GetItemCost(itemName);
+	
 	if ( cost > (int)buyMenuCash )
 	{
 		return IBS_CANNOT_AFFORD;
@@ -8436,7 +8454,21 @@ bool idPlayer::AttemptToBuyItem( const char* itemName )
 		return false;
 	}
 
-	int itemCost = GetItemCost( itemName );
+	int itemCost;
+	if ( itemName == "mana_refil" )
+	{
+		itemCost = 250;
+	}else if ( itemName == "infinite_mana" )
+	{
+		itemCost = 8000;
+	}else if ( itemName == "invincible" )
+	{
+		itemCost = 10000;
+	}else if ( itemName == "XP" )
+	{
+		itemCost = 200;
+	}else	
+		itemCost = GetItemCost(itemName);
 
 	/// Check if the player is allowed to buy this item
 	if( !CanBuyItem( itemName ) )
@@ -8601,13 +8633,43 @@ void idPlayer::PerformImpulse( int impulse ) {
 
 // RITUAL BEGIN
 // squirrel: Mode-agnostic buymenus
-		case IMPULSE_100:	AttemptToBuyItem( "weapon_shotgun" );				break;
-		case IMPULSE_101:	AttemptToBuyItem( "weapon_machinegun" );			break;
-		case IMPULSE_102:	AttemptToBuyItem( "weapon_hyperblaster" );			break;
-		case IMPULSE_103:	AttemptToBuyItem( "weapon_grenadelauncher" );		break;
-		case IMPULSE_104:	AttemptToBuyItem( "weapon_nailgun" );				break;
-		case IMPULSE_105:	AttemptToBuyItem( "weapon_rocketlauncher" );		break;
-		case IMPULSE_106:	AttemptToBuyItem( "weapon_railgun" );				break;
+						 /*
+				{ "mana_refil",					IMPULSE_100, },
+		{ "damage_boost",				IMPULSE_101, },
+		{ "infinite_mana",			IMPULSE_102, },
+		{ "invincible",			IMPULSE_103, },
+		{ "weapon_boost",					IMPULSE_104, },
+		{ "super_speed",			IMPULSE_105, },
+		{ "super_jump",					IMPULSE_106, },
+		{ "health_regen",			IMPULSE_107, },
+		//									IMPULSE_108 - Unused
+		//{ "weapon_napalmgun",				IMPULSE_109, },
+		//		{ "weapon_dmg",						IMPULSE_110, },
+		//									IMPULSE_111 - Unused
+		//									IMPULSE_112 - Unused
+		//									IMPULSE_113 - Unused
+		//									IMPULSE_114 - Unused
+		//									IMPULSE_115 - Unused
+		//									IMPULSE_116 - Unused
+		//									IMPULSE_117 - Unused
+		{ "item_armor_small",				IMPULSE_118, },
+		{ "item_armor_large",				IMPULSE_119, },
+		//{ "ammorefill",						IMPULSE_120, },
+		//									IMPULSE_121 - Unused
+		//									IMPULSE_122 - Unused
+		//{ "ammo_regen",						IMPULSE_123, },
+		//{ "health_regen",					IMPULSE_124, },
+		//{ "damage_boost",					IMPULSE_125, },
+		//									IMPULSE_126 - Unused
+		//									IMPULSE_127 - Unused
+						 */
+		case IMPULSE_100:	AttemptToBuyItem( "manarefil" );				break;
+		case IMPULSE_101:	AttemptToBuyItem( "damage_boost" );			break;
+		case IMPULSE_102:	AttemptToBuyItem( "infinite_mana" );			break;
+		case IMPULSE_103:	AttemptToBuyItem( "invincible" );		break;
+		case IMPULSE_104:	AttemptToBuyItem( "weaponboost" );				break;
+		case IMPULSE_105:	AttemptToBuyItem( "super_jump" );		break;
+		case IMPULSE_106:	AttemptToBuyItem( "health_regen" );				break;
 		case IMPULSE_107:	AttemptToBuyItem( "weapon_lightninggun" );			break;
 		case IMPULSE_108:	break; // Unused
 		case IMPULSE_109:	AttemptToBuyItem( "weapon_napalmgun" );				break;
@@ -14380,7 +14442,7 @@ void idPlayer::PLevel ( int pLevel)
 			// give weapon 10
 			break;
 		default:
-			// start with blaster ( hands magic )
+			// wep 0
 			this->inventory.maxHealth = 100;
 			this->SetWeapon(0);
 			playerLevel = 1;

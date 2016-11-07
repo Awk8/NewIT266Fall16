@@ -470,6 +470,23 @@ void GiveStuffToPlayer( idPlayer* player, const char* name, const char* value )
 		}
 	}
 
+	if ( give_all || idStr::Icmp( name, "mana_refil" ) == 0) {
+		player->inventory.mana = player->inventory.maxMana;
+		return;
+	}
+	if ( give_all || idStr::Icmp( name, "infinite_mana" ) == 0) {
+		player->inventory.mana = -1;
+		return;
+	}
+	if ( give_all || idStr::Icmp( name, "invincible" ) == 0) {
+		player->godmode = true;
+		return;
+	}
+	if ( give_all || idStr::Icmp( name, "XP" ) == 0) {
+		player->GiveXP( 100 );
+		return;
+	}
+
 	if ( give_all || idStr::Icmp( name, "armor" ) == 0 ) {
 		player->inventory.armor = player->inventory.maxarmor;
 		if ( !give_all ) {

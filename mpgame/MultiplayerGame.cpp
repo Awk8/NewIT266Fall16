@@ -3729,21 +3729,28 @@ void idMultiplayerGame::SetupBuyMenuItems()
 	if ( !player ) 
 		return;
 
-	buyMenu->SetStateInt( "buyStatus_shotgun", player->ItemBuyStatus( "weapon_shotgun" ) );
-	buyMenu->SetStateInt( "buyStatus_hyperblaster", player->ItemBuyStatus( "weapon_hyperblaster" ) );
-	buyMenu->SetStateInt( "buyStatus_grenadelauncher", player->ItemBuyStatus( "weapon_grenadelauncher" ) );
-	buyMenu->SetStateInt( "buyStatus_nailgun", player->ItemBuyStatus( "weapon_nailgun" ) );
-	buyMenu->SetStateInt( "buyStatus_rocketlauncher", player->ItemBuyStatus( "weapon_rocketlauncher" ) );
-	buyMenu->SetStateInt( "buyStatus_railgun", player->ItemBuyStatus( "weapon_railgun" ) );
-	buyMenu->SetStateInt( "buyStatus_lightninggun", player->ItemBuyStatus( "weapon_lightninggun" ) );
+	buyMenu->SetStateInt( "buyStatus_manaref", player->ItemBuyStatus( "mana_refil" ) );
+	buyMenu->SetStateInt( "buyStatus_infmana", player->ItemBuyStatus( "infinite_mana" ) );
+	buyMenu->SetStateInt( "buyStatus_invincible", player->ItemBuyStatus( "invincible" ) );
+	buyMenu->SetStateInt( "buyStatus_weaponboost", player->ItemBuyStatus( "weapon_boost" ) );
+	buyMenu->SetStateInt( "buyStatus_sspeed", player->ItemBuyStatus( "super_speed" ) );
+	buyMenu->SetStateInt( "buyStatus_sjump", player->ItemBuyStatus( "super_jump" ) );
+
+	//buyMenu->SetStateInt( "buyStatus_shotgun", player->ItemBuyStatus( "weapon_shotgun" ) );
+	//buyMenu->SetStateInt( "buyStatus_hyperblaster", player->ItemBuyStatus( "weapon_hyperblaster" ) );
+	//buyMenu->SetStateInt( "buyStatus_grenadelauncher", player->ItemBuyStatus( "weapon_grenadelauncher" ) );
+	//buyMenu->SetStateInt( "buyStatus_nailgun", player->ItemBuyStatus( "weapon_nailgun" ) );
+	//buyMenu->SetStateInt( "buyStatus_rocketlauncher", player->ItemBuyStatus( "weapon_rocketlauncher" ) );
+	//buyMenu->SetStateInt( "buyStatus_railgun", player->ItemBuyStatus( "weapon_railgun" ) );
+	//buyMenu->SetStateInt( "buyStatus_lightninggun", player->ItemBuyStatus( "weapon_lightninggun" ) );
 	//	buyMenu->SetStateInt( "buyStatus_dmg", player->ItemBuyStatus( "weapon_dmg" ) );
-	buyMenu->SetStateInt( "buyStatus_napalmgun", player->ItemBuyStatus( "weapon_napalmgun" ) );
+	//buyMenu->SetStateInt( "buyStatus_napalmgun", player->ItemBuyStatus( "weapon_napalmgun" ) );
 
 	buyMenu->SetStateInt( "buyStatus_lightarmor", player->ItemBuyStatus( "item_armor_small" ) );
 	buyMenu->SetStateInt( "buyStatus_heavyarmor", player->ItemBuyStatus( "item_armor_large" ) );
-	buyMenu->SetStateInt( "buyStatus_ammorefill", player->ItemBuyStatus( "ammorefill" ) );
+	//buyMenu->SetStateInt( "buyStatus_ammorefill", player->ItemBuyStatus( "ammorefill" ) );
 
-	buyMenu->SetStateInt( "buyStatus_special0", player->ItemBuyStatus( "ammo_regen" ) );
+	//buyMenu->SetStateInt( "buyStatus_special0", player->ItemBuyStatus( "ammo_regen" ) );
 	buyMenu->SetStateInt( "buyStatus_special1", player->ItemBuyStatus( "health_regen" ) );
 	buyMenu->SetStateInt( "buyStatus_special2", player->ItemBuyStatus( "damage_boost" ) );
 
@@ -3966,21 +3973,29 @@ idUserInterface* idMultiplayerGame::StartMenu( void ) {
 		//if( mpClientGameState.gameState.currentState == COUNTDOWN ) {
 			idPlayer* player = gameLocal.GetLocalPlayer();
 			buyMenu->SetStateString( "field_credits", va("%i", (int)player->buyMenuCash) );
-			buyMenu->SetStateInt( "price_shotgun", player->GetItemCost("weapon_shotgun") );
+
+			buyMenu->SetStateInt( "price_manaref", 250 );
+			buyMenu->SetStateInt( "price_infmana", 2000 );
+			buyMenu->SetStateInt( "price_invincible", 5000 );
+			buyMenu->SetStateInt( "price_weaponboost", 4000 );
+			buyMenu->SetStateInt( "price_sspeed", 1000 );
+			buyMenu->SetStateInt( "price_sjump", 1000 );
+
+			/*buyMenu->SetStateInt( "price_shotgun", player->GetItemCost("weapon_shotgun") );
 			buyMenu->SetStateInt( "price_hyperblaster", player->GetItemCost("weapon_hyperblaster") );
 			buyMenu->SetStateInt( "price_grenadelauncher", player->GetItemCost( "weapon_grenadelauncher" ) );
 			buyMenu->SetStateInt( "price_nailgun", player->GetItemCost( "weapon_nailgun" ) );
 			buyMenu->SetStateInt( "price_rocketlauncher", player->GetItemCost( "weapon_rocketlauncher" ) );
 			buyMenu->SetStateInt( "price_railgun", player->GetItemCost( "weapon_railgun" ) );
-			buyMenu->SetStateInt( "price_lightninggun", player->GetItemCost( "weapon_lightninggun" ) );
+			buyMenu->SetStateInt( "price_lightninggun", player->GetItemCost( "weapon_lightninggun" ) );*/
 			//			buyMenu->SetStateInt( "price_dmg", player->GetItemCost( "weapon_dmg" ) );
-			buyMenu->SetStateInt( "price_napalmgun", player->GetItemCost( "weapon_napalmgun" ) );
+			//buyMenu->SetStateInt( "price_napalmgun", player->GetItemCost( "weapon_napalmgun" ) );
 
 			buyMenu->SetStateInt( "price_lightarmor", player->GetItemCost( "item_armor_small" ) );
 			buyMenu->SetStateInt( "price_heavyarmor", player->GetItemCost( "item_armor_large" ) );
-			buyMenu->SetStateInt( "price_ammorefill", player->GetItemCost( "ammorefill" ) );
+			//buyMenu->SetStateInt( "price_ammorefill", player->GetItemCost( "ammorefill" ) );
 
-			buyMenu->SetStateInt( "price_special0", player->GetItemCost( "ammo_regen" ) );
+			//buyMenu->SetStateInt( "price_special0", player->GetItemCost( "ammo_regen" ) );
 			buyMenu->SetStateInt( "price_special1", player->GetItemCost( "health_regen" ) );
 			buyMenu->SetStateInt( "price_special2", player->GetItemCost( "damage_boost" ) );
 			SetupBuyMenuItems();
